@@ -24,13 +24,9 @@
    Do not modify this value. */
 #define THREAD_BASIC 0xd42df210
 
-// 수정
-int64_t next_tick_to_awake = INT64_MAX;
-
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
-static struct list sleep_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -83,11 +79,6 @@ static tid_t allocate_tid (void);
 // setup temporal gdt first.
 static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
-
-
-
-
-
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -117,7 +108,6 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
-	list_init (&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -597,66 +587,4 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
-}
-
-
-/* 스레드를 block상태로 만들고 sleep queue에 삽입 */
-void thread_sleep(int64_t ticks){
-	struct thread *t = thread_current();
-
-	ASSERT(!intr_context());	// 인터럽트 없을 때 실행
-
-	enum intr_level old_level = intr_disable();	// 끄고, 이전값 가져옴
-	
-	if(t!=idle_thread){
-		t->wakeup_tick = ticks;					// 일어날 시간 설정
-		list_push_back(&sleep_list, &(t->elem));	// sleep_list 맨뒤에
-		thread_block();								// 실행중인 스레드 block
-	}
-
-	intr_set_level(old_level);						// 인터럽트 복구
-
-	
-	// 스레드를 sleep queue에 삽입
-	// status = block
-	// 인터럽트 disable
-	// timer_sleep()에서 호출
-}
-
-/* sleep queue에서 깨워야 할 스레드를 찾아서 wake up */
-void thread_awake(int64_t ticks){
-	struct thread *t;
-	struct list_elem *tmp = list_begin(&sleep_list);	// sleep list의 첫번째 원소
-	int64_t min_wake = INT64_MAX;
-	for(tmp; tmp!=list_end(&sleep_list); tmp=list_next(tmp)){
-		t = list_entry(tmp, struct thread, elem);
-		if(t->wakeup_tick<=ticks){
-			// sleep에서 제거
-			tmp = list_prev(list_remove(tmp));
-			// block시키고 ready에 추가
-			thread_unblock(t);
-		}
-		else{
-			if(t->wakeup_tick<min_wake){
-				min_wake = t->wakeup_tick;
-			}
-		}
-	}
-	if(min_wake!=INT64_MAX)
-		update_next_tick_to_awake(min_wake);
-	
-
-	// wakeup_tick값(스레드가 일어날 시간)이 인자로 들어온 ticks값()
-	// 현재 대기중인 스레드들의 wakeup_tick 변수 중 가장 작은 값을 
-	// next_tick_to_awake 전역변수에 저장
-}
-
-/* 스레드들이 가진 tick값에서 최소값을 저장 - 가장 빨리 일어날 스레드 */
-void update_next_tick_to_awake(int64_t ticks){
-	next_tick_to_awake = ticks;
-}
-
-/* 최소 tick값을 반환 */
-int64_t get_next_tick_to_awake(void){
-	return next_tick_to_awake;
 }
