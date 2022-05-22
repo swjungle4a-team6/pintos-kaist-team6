@@ -67,7 +67,6 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
-
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -215,13 +214,8 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-
 	/* Add to run queue. */
 	thread_unblock (t);
-
-	// 수정-priority
-	// 비교해서 만든게 더 높으면 yield()하고 선점
-	test_max_priority();
 
 	return tid;
 }
@@ -256,10 +250,7 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	// list_push_back (&ready_list, &t->elem);
-	// 수정-priority
-	// 우선순위 순으로 정렬되어 삽입되도록
-	list_insert_ordered(&ready_list, &t->elem, cmp_priority, NULL);
+	list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -321,28 +312,16 @@ thread_yield (void) {
 	ASSERT (!intr_context ());
 
 	old_level = intr_disable ();
-	if (curr != idle_thread){
-		// list_push_back (&ready_list, &curr->elem);
-		// 수정-priority
-		// 우선순위 순으로 정렬되어 삽입되도록
-		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, NULL);
-	}
-
+	if (curr != idle_thread)
+		list_push_back (&ready_list, &curr->elem);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
-
-	// cpu 양보할때, 양보한 애가 푸시백아니구 인서트오더 되도록
-
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
-	// 수정-priority
-	// 현재스레드를 ready에 다시 넣음
-	// list_insert_ordered(&ready_list, &thread_current()->elem, cmp_priority, NULL);
-	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -680,25 +659,4 @@ void update_next_tick_to_awake(int64_t ticks){
 /* 최소 tick값을 반환 */
 int64_t get_next_tick_to_awake(void){
 	return next_tick_to_awake;
-}
-
-
-/* 현재 수행중인 스레드와 가장높은 순위의 스레드를 비교해서 스케줄링 → 선점 판단 */
-void test_max_priority(void){
-	int curr_pri = thread_get_priority();
-	struct thread *ready_thread = list_entry(list_begin(&ready_list), struct thread, elem);
-	
-	if(curr_pri < ready_thread->priority){
-		thread_yield();
-	}	
-	
-}
-
-/* 인자로 주어진 스레드들의 우선순위를 비교 */
-bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
-	struct thread *a_thread = list_entry(a, struct thread, elem);
-	struct thread *b_thread = list_entry(b, struct thread, elem);
-	
-	return a_thread->priority > b_thread->priority ? 1 : 0;
-	
 }
