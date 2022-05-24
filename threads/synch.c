@@ -32,6 +32,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -198,12 +199,29 @@ void lock_init(struct lock *lock)
    we need to sleep. */
 void lock_acquire(struct lock *lock)
 {
+	/* 
+	 * project 3 - Priority Donation
+	 * lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여
+	 * priority donation을 수행하도록 수정
+	 */
+	struct thread*t = thread_current();
+	
+	if (lock->holder!=NULL){
+		t->wait_on_lock = lock;
+
+		if (lock->holder->priority < t->priority){
+			list_push_back(&(lock->holder->donations), &t->d_elem);
+			donate_priority();
+		}
+	}
+	
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
 	ASSERT(!lock_held_by_current_thread(lock));
 
 	sema_down(&lock->semaphore);
-	lock->holder = thread_current();
+	lock->holder = t;
+	t->wait_on_lock = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -233,9 +251,15 @@ bool lock_try_acquire(struct lock *lock)
    handler. */
 void lock_release(struct lock *lock)
 {
+	/* donation list 에서 스레드를 제거하고 우선순위를 다시 계산하도록
+	remove_with_lock(), refresh_prioriy() 함수를 호출 */
+
 	ASSERT(lock != NULL);
 	ASSERT(lock_held_by_current_thread(lock));
 
+	remove_with_lock(lock);
+	refresh_priority();
+	
 	lock->holder = NULL;
 	sema_up(&lock->semaphore);
 }
