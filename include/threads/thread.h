@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -94,12 +95,15 @@ struct thread
 	int priority;			   /* Priority. */
 	int64_t wakeup_tick;	   // 일어날 시간
 
-	int init_priority; 		   /* donation 이후 우선순위를 초기화하기 위해 초기값 저장 */
+	int init_priority;		   /* donation 이후 우선순위를 초기화하기 위해 초기값 저장 */
 	struct lock *wait_on_lock; /* 해당 스레드가 대기하고있는 lock자료구조의 주소를 저장 */
 	struct list donations;	   /* 해당 스레드가 우선순위는 낮으나 lock을 보유하고 있을 때 사용됨 */
 	struct list_elem d_elem;   /* 낮은 우선순위를 가진 스레드의 donations가 가리키는 list_elem  */
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem;	   /* List element. */
+	struct list_elem elem; /* List element. */
+
+	int nice;		/* 우선순위에 영향을 주는 값 */
+	int recent_cpu; /* 최근에 얼마나 많은 CPU time을 사용했는가를 표현 */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -150,10 +154,17 @@ int thread_get_load_avg(void);
 void test_max_priority(void);
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
-
 void donate_priority(void);
 void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
+
+void mlfqs_priority(struct thread *t);
+void mlfqs_recent_cpu(struct thread *t);
+void mlfqs_load_avg(void);
+void mlfqs_increment(void);
+void mlfqs_recalc_priority(void);
+void mlfqs_recalc_recent_cpu(void);
+int thread_get_recent_cpu(void);
 
 void do_iret(struct intr_frame *tf);
 
