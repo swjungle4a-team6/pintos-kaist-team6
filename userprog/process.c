@@ -215,7 +215,11 @@ int process_exec(void *f_name)
 	/* And then load the binary */
 	success = load(file_name, &_if);
 
+	
 	argument_stack(parse, cnt, &_if.rsp);
+	_if.R.rdi = cnt;
+	_if.R.rsi = _if.rsp + WORD_ALIGN;
+	
 	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 
 	/* ------------ Argument Passing ------------*/
@@ -236,27 +240,28 @@ void argument_stack(char **parse, int count, void **rsp)
 	void *addr_argv[count];
 
 	/* parse로 들어온값을 스택에 push (뒤에서부터) */
-	for (i = 0; i < count; i++)
+	for (i = count-1; i >= 0; i--)	// v,u,t,s, ... ,c,b,a,args-single
 	{
-		/* 인자값들의 주소를 저장(argv[]의 주소) */
-		addr_argv[i] = *rsp;
-		for (j = 0; j <= strlen(parse[i]); j++) // NULL 문자를 읽기 위해 str + 1 만큼 읽음
+		for (j = strlen(parse[i]); j >= 0; j--) // NULL 문자를 읽기 위해 str + 1 만큼 읽음
 		{
 			/* *rsp는 끝 주소를 적어놨기 때문에 감소 후에 데이터를 push 해야한다. */
 			*rsp = *rsp - 1;
 			**(char **)rsp = parse[i][j];
 		}
+		/* 인자값들의 주소를 저장(argv[]의 주소) */
+		addr_argv[i] = *rsp;		// args-single, a,b,c,...,s,t,u,v
 	}
 
 	/* word-align (padding)
 	 * uintptr_t = 8byte
 	 * rsp 포인터를 8의 배수로 정렬해주기 위함
 	 */
-
-	for (*rsp -= 1; *rsp != *(uintptr_t *)rsp & (0xfffffff8); *rsp -= 1)
-	{
+	uintptr_t dst = *(uintptr_t *)rsp & (0xfffffff8);
+	for (*rsp -= 1; *rsp >= dst; *rsp -= 1)
+	{		
 		**(char **)rsp = NULL;
 	}
+	*rsp += 1;
 
 	/* argv[argc] */
 	// for (int idx = 0; idx < WORD_ALIGN; idx++)
@@ -270,7 +275,7 @@ void argument_stack(char **parse, int count, void **rsp)
 	**(uintptr_t **)rsp = NULL;
 
 	/* argv[]의 주소값 역순으로 저장 */
-	for (i = count - 1; i > -1; i--)
+	for (i = count-1; i >= 0; i--)
 	{
 		*rsp = *rsp - WORD_ALIGN;
 		**(uintptr_t **)rsp = addr_argv[i];
