@@ -14,6 +14,10 @@ void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 void check_address(uintptr_t *addr);
 void get_argument(uintptr_t *rsp, int *arg, int count);
+void halt(void);
+void exit(int status);
+bool create(const char *file, unsigned initial_size);
+bool remove(const char *file);
 
 /* System call.
  *
@@ -54,7 +58,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	// TODO: Your implementation goes here.
 	printf("system call!\n");
-	thread_exit();
+	// thread_exit();
 
 	switch (f->R.rax)
 	{
@@ -62,11 +66,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	/* Projects 2 and later. */
 	/* Halt the operating system. */
 	case SYS_HALT:
-		power_off();
+		halt();
 		break;
 
 	/* Terminate this process. */
 	case SYS_EXIT:
+		exit(f->R.rdi);
 		break;
 
 	/* Clone current process. */
@@ -83,10 +88,26 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	/* Create a file. */
 	case SYS_CREATE:
+		// check_address(f->R.rdi);
+		// check_address(f->R.rsi);
+		// if(create(f->R.rdi, f->R.rsi)){
+		// 	printf("create success!");
+		// }
+		// else{
+		// 	printf("create fail!");
+		// }
+		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 
 	/* Delete a file. */
 	case SYS_REMOVE:
+		// if(remove(f->R.rdi)){
+		// 	printf("remove success!");
+		// }
+		// else{
+		// 	printf("remove fail!");
+		// }
+		f->R.rax = remove(f->R.rdi);
 		break;
 
 	/* Open a file. */
@@ -103,6 +124,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 
 	/* Write to a file. */
 	case SYS_WRITE:
+		// printf("10?!");
+		// rdi, rsi, rdx // fd, buffer, size
 		break;
 
 	/* Change position in a file. */
@@ -135,7 +158,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
  */
 void check_address(uintptr_t *addr)
 {
+	struct thread *t = thread_current();
 	/* TODO : User Memory Access */
+	if(!is_user_vaddr(addr) || addr == NULL || !pml4_get_page(t->pml4, addr)){
+		printf("check_address~!!");
+		exit(-1);
+	}
 }
 
 /* get_argument()
@@ -143,6 +171,45 @@ void check_address(uintptr_t *addr)
  * 스택 포인터(_if->rsp)에 count(인자의 개수) 만큼의 데이터를 arg에 저장
  * int *arg (스택 메모리가 아닌 커널 영역)
  */
-void get_argument(uintptr_t *rsp, int *arg, int count)
-{
+// void get_argument(uintptr_t *rsp, int *arg, int count)
+// {
+// 	*arg = *rsp + 16;
+// 	for(int i=0; i<count; i++){
+// 		check_address(*arg);
+// 		*arg++;
+// 	}
+// 	check_address()
+
+// }
+
+void halt(void){
+	power_off();
+}
+
+void exit(int status){
+	struct  thread *t = thread_current();
+	printf("%s: exit(%d)\n", t->name, status);
+	thread_exit();
+}
+
+bool create(const char *file, unsigned initial_size){
+	check_address(file);
+	return filesys_create (file, initial_size);
+	// if(filesys_create (file, initial_size)){
+	// 	return true;
+	// }
+	// else{
+	// 	return false;
+	// }
+}
+
+bool remove(const char *file){
+	check_address(file);
+	return filesys_remove (file);
+	// if(filesys_remove (file)){
+	// 	return true;
+	// }
+	// else{
+	// 	return false;
+	// }
 }
