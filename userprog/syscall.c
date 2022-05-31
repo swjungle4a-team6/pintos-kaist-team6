@@ -138,7 +138,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 void check_address(const uint64_t *uaddr)
 {
 	struct thread *cur = thread_current();
-	if (uaddr == NULL || !(is_user_vaddr(uaddr)) || pml4_get_page(cur->pml4, uaddr) == NULL)
+	if (!uaddr || !(is_user_vaddr(uaddr)) || !pml4_get_page(cur->pml4, uaddr))
 	{
 		exit(-1);
 	}
@@ -201,7 +201,7 @@ void exit(int status)
 	thread_exit();
 }
 
-/* 요청받은 파일을 생성한다. 만약 파일 주소가 유요하지 않다면 종료 */
+/* 요청받은 파일을 생성한다. 만약 파일 주소가 유효하지 않다면 종료 */
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
@@ -243,7 +243,7 @@ int exec(char *file_name)
 	int siz = strlen(file_name) + 1;
 	char *fn_copy = palloc_get_page(PAL_ZERO);
 
-	if (fn_copy == NULL)
+	if (!fn_copy)
 		exit(-1);
 	strlcpy(fn_copy, file_name, siz);
 
@@ -251,6 +251,7 @@ int exec(char *file_name)
 		return -1;
 
 	// Not reachable
+	// schedule 이후 run이었던 thread의 context는 실행되지 않음
 	NOT_REACHED();
 
 	return 0;
@@ -306,12 +307,12 @@ int read(int fd, void *buffer, unsigned size)
 	struct thread *cur = thread_current();
 
 	struct file *fileobj = find_file_by_fd(fd);
-	if (fileobj == NULL)
+	if (!fileobj)
 		return -1;
 
-	if (fileobj == STDIN)
+	if (fileobj == STDIN) // 1
 	{
-		if (cur->stdin_count == 0)
+		if (!cur->stdin_count)
 		{
 			// Not reachable
 			NOT_REACHED();

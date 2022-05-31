@@ -92,7 +92,7 @@ tid_t process_fork(const char *name, struct intr_frame *if_ UNUSED)
 	if (tid == TID_ERROR)
 		return TID_ERROR;
 
-	struct thread *child = get_child_with_pid(tid);
+	struct thread *child = get_child_process(tid);
 	sema_down(&child->fork_sema); // wait until child loads
 	if (child->exit_status == -1)
 		return TID_ERROR;
@@ -398,19 +398,15 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	// for(int i = 0 ; i<10000000; i++);
+	struct thread *child = get_child_process(child_tid);
 
-	// return -1;
-
-	struct thread *child = get_child_with_pid(child_tid);
-
-	if (child == NULL)
+	if (!child)
 		return -1;
 
 	/* 자식 프로세스가 종료할때 까지 대기 */
 	sema_down(&child->wait_sema);
 
-	/* 자식으로 부터 종료인자를 전달 받고 리스트에서 삭제 */
+	/* 자식으로부터 종료인자를 전달 받고 리스트에서 삭제 */
 	int exit_status = child->exit_status;
 	list_remove(&child->child_elem);
 
@@ -892,7 +888,11 @@ setup_stack(struct intr_frame *if_)
 }
 #endif /* VM */
 
-struct thread *get_child_with_pid(int pid)
+/* get_child_process()
+ * 현재 프로세스의 자식 리스트를 검색하여 해당 pid에 맞는 프로세스 디스크립터를 반환
+ * pid를 갖는 프로세스 디스크립터가 존재하지 않을 경우 NULL 반환
+ */
+struct thread *get_child_process(int pid)
 {
 	struct thread *cur = thread_current();
 	struct list *child_list = &cur->child_list;
