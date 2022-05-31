@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 
 #ifdef VM
 #include "vm/vm.h"
@@ -100,7 +101,8 @@ struct thread
 	struct list donations;	   /* 해당 스레드가 우선순위는 낮으나 lock을 보유하고 있을 때 사용됨 */
 	struct list_elem d_elem;   /* 낮은 우선순위를 가진 스레드의 donations가 가리키는 list_elem  */
 	/* Shared between thread.c and synch.c. */
-	struct list_elem elem; /* List element. */
+	struct list_elem elem;	  /* List element. */
+	struct list_elem allelem; /* advanced scheduling */
 
 	int nice;		/* 우선순위에 영향을 주는 값 */
 	int recent_cpu; /* 최근에 얼마나 많은 CPU time을 사용했는가를 표현 */
@@ -117,6 +119,31 @@ struct thread
 	/* Owned by thread.c. */
 	struct intr_frame tf; /* Information for switching */
 	unsigned magic;		  /* Detects stack overflow. */
+
+	/* 자식 프로세스 순회용 리스트 */
+	struct list child_list;
+	struct list_elem child_elem;
+
+	/* wait_sema 를 이용하여 자식 프로세스가 종료할때까지 대기함. 종료 상태를 저장 */
+	struct semaphore wait_sema;
+	int exit_status;
+
+	/* 자식에게 넘겨줄 intr_frame
+	fork가 완료될때 까지 부모가 기다리게 하는 forksema
+	자식 프로세스 종료상태를 부모가 받을때까지 종료를 대기하게 하는 free_sema */
+	struct intr_frame parent_if;
+	struct semaphore fork_sema;
+	struct semaphore free_sema;
+
+	/* fd table 파일 구조체와 fd index */
+	struct file **fdTable;
+	int fdIdx;
+
+	int stdin_count;
+	int stdout_count;
+
+	/* 현재 실행 중인 파일 */
+	struct file *running;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -167,5 +194,8 @@ void mlfqs_recalc_recent_cpu(void);
 int thread_get_recent_cpu(void);
 
 void do_iret(struct intr_frame *tf);
+
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES *(1 << 9)
 
 #endif /* threads/thread.h */

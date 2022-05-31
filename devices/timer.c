@@ -163,6 +163,8 @@ timer_interrupt(struct intr_frame *args UNUSED)
 		{
 			mlfqs_recalc_priority();
 		}
+		thread_awake(ticks);
+		return;
 	}
 
 	thread_awake(ticks);

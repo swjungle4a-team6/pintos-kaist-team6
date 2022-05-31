@@ -37,12 +37,13 @@
 int load_avg;
 
 // 수정
-int64_t next_tick_to_awake = INT64_MAX;
+static int64_t next_tick_to_awake;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
 static struct list sleep_list;
+static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -124,6 +125,7 @@ void thread_init(void)
 	list_init(&ready_list);
 	list_init(&sleep_list);
 	list_init(&destruction_req);
+	list_init(&all_list);
 
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread();
@@ -208,6 +210,21 @@ tid_t thread_create(const char *name, int priority,
 	/* Initialize thread. */
 	init_thread(t, name, priority);
 	tid = t->tid = allocate_tid();
+
+	/* 현재 스레드의 자식 리스트에 새로 생성한 스레드 추가 */
+	struct thread *curr = thread_current();
+	list_push_back(&curr->child_list, &t->child_elem);
+
+	/* 파일 디스크립터 초기화 */
+	t->fdTable = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->fdTable == NULL)
+		return TID_ERROR;
+	t->fdIdx = 2;
+	t->fdTable[0] = 1;
+	t->fdTable[1] = 2;
+
+	t->stdin_count = 1;
+	t->stdout_count = 1;
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -313,6 +330,10 @@ void thread_exit(void)
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable();
+	/* project2 추가 */
+	list_remove(&thread_current()->allelem);
+	/* */
+
 	do_schedule(THREAD_DYING);
 	NOT_REACHED();
 }
@@ -498,6 +519,7 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->magic = THREAD_MAGIC;
 
 	/* project 3 - Priority Donation init */
+	list_push_back(&all_list, &t->allelem);
 	t->init_priority = priority;
 	list_init(&t->donations);
 
@@ -507,6 +529,13 @@ init_thread(struct thread *t, const char *name, int priority)
 		t->nice = NICE_DEFAULT;
 		t->recent_cpu = RECENT_CPU_DEFAULT;
 	}
+	/* 자식 리스트 및 세마포어 초기화 */
+	list_init(&t->child_list);
+	sema_init(&t->wait_sema, 0);
+	sema_init(&t->fork_sema, 0);
+	sema_init(&t->free_sema, 0);
+
+	t->running = NULL;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -701,15 +730,14 @@ allocate_tid(void)
 /* 스레드를 block상태로 만들고 sleep queue에 삽입 */
 void thread_sleep(int64_t ticks)
 {
+	enum intr_level old_level = intr_disable();
 	struct thread *t = thread_current();
-
 	ASSERT(!intr_context()); // 인터럽트 없을 때 실행
-
-	enum intr_level old_level = intr_disable(); // 끄고, 이전값 가져옴
 
 	if (t != idle_thread)
 	{
-		t->wakeup_tick = ticks;					 // 일어날 시간 설정
+		t->wakeup_tick = ticks; // 일어날 시간 설정
+		update_next_tick_to_awake(ticks);
 		list_push_back(&sleep_list, &(t->elem)); // sleep_list 맨뒤에
 		thread_block();							 // 실행중인 스레드 block
 	}
@@ -725,9 +753,9 @@ void thread_sleep(int64_t ticks)
 /* sleep queue에서 깨워야 할 스레드를 찾아서 wake up */
 void thread_awake(int64_t ticks)
 {
+	next_tick_to_awake = INT64_MAX;
 	struct thread *t;
 	struct list_elem *tmp = list_begin(&sleep_list); // sleep list의 첫번째 원소
-	int64_t min_wake = INT64_MAX;
 	for (tmp; tmp != list_end(&sleep_list); tmp = list_next(tmp))
 	{
 		t = list_entry(tmp, struct thread, elem);
@@ -740,15 +768,9 @@ void thread_awake(int64_t ticks)
 		}
 		else
 		{
-			if (t->wakeup_tick < min_wake)
-			{
-				min_wake = t->wakeup_tick;
-			}
+			update_next_tick_to_awake(t->wakeup_tick);
 		}
 	}
-	if (min_wake != INT64_MAX)
-		update_next_tick_to_awake(min_wake);
-
 	// wakeup_tick값(스레드가 일어날 시간)이 인자로 들어온 ticks값()
 	// 현재 대기중인 스레드들의 wakeup_tick 변수 중 가장 작은 값을
 	// next_tick_to_awake 전역변수에 저장
@@ -757,7 +779,7 @@ void thread_awake(int64_t ticks)
 /* 스레드들이 가진 tick값에서 최소값을 저장 - 가장 빨리 일어날 스레드 */
 void update_next_tick_to_awake(int64_t ticks)
 {
-	next_tick_to_awake = ticks;
+	next_tick_to_awake = (ticks < next_tick_to_awake) ? ticks : next_tick_to_awake;
 }
 
 /* 최소 tick값을 반환 */
@@ -860,7 +882,7 @@ void mlfqs_priority(struct thread *t)
 	}
 	else
 	{
-		int pre = PRI_MAX - (t->nice * 2);		 // 정수
+		int pre = PRI_MAX - t->nice * 2;		 // 정수
 		int post = div_mixed(t->recent_cpu, -4); // 실수
 		t->priority = fp_to_int(add_mixed(post, pre));
 		// thread_get_nice
