@@ -77,12 +77,12 @@ bool filesys_create(const char *name, off_t initial_size)
 struct file *
 filesys_open(const char *name)
 {
-	struct dir *dir = dir_open_root();
+	struct dir *dir = dir_open_root(); // 루트 디렉토리 오픈
 	struct inode *inode = NULL;
 
 	if (dir != NULL)
-		dir_lookup(dir, name, &inode);
-	dir_close(dir);
+		dir_lookup(dir, name, &inode); // 해당 dir에 해당되는 name에 해당되는 inode에 저장
+	dir_close(dir);					   // 디렉토리는 쓰고 닫아야 함
 
 	return file_open(inode);
 }

@@ -138,7 +138,7 @@ struct thread
 	/* fd table 파일 구조체와 fd index
 	 * 각 프로세스는 자신의 File Descriptor 테이블을 가지고 있음 (파일 객체 포인터의 배열)
 	 */
-	struct file **fdTable;
+	struct file **fdTable; // 배열로 구현?
 	int fdIdx;
 
 	// stdin_count와 stdout_count?
