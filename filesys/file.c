@@ -53,7 +53,7 @@ file_duplicate(struct file *file)
 	{
 		nfile->pos = file->pos;
 		if (file->deny_write)
-			file_deny_write(nfile);
+			file_deny_write(nfile); // 열린 파일의 데이터가 변경되는 것을 예방
 
 		nfile->dupCount = file->dupCount;
 	}
@@ -65,7 +65,7 @@ void file_close(struct file *file)
 {
 	if (file != NULL)
 	{
-		file_allow_write(file);
+		file_allow_write(file); // 파일의 데이터가 변경되는 것을 허락
 		inode_close(file->inode);
 		free(file);
 	}
@@ -83,6 +83,7 @@ file_get_inode(struct file *file)
  * Returns the number of bytes actually read,
  * which may be less than SIZE if end of file is reached.
  * Advances FILE's position by the number of bytes read. */
+// 파일의 현재 위치에서 시작하여 파일에서 버퍼로 크기 바이트를 읽음
 off_t file_read(struct file *file, void *buffer, off_t size)
 {
 	off_t bytes_read = inode_read_at(file->inode, buffer, size, file->pos);
@@ -107,6 +108,7 @@ off_t file_read_at(struct file *file, void *buffer, off_t size, off_t file_ofs)
  * (Normally we'd grow the file in that case, but file growth is
  * not yet implemented.)
  * Advances FILE's position by the number of bytes read. */
+// 파일에 데이터를 기록하는 함수
 off_t file_write(struct file *file, const void *buffer, off_t size)
 {
 	off_t bytes_written = inode_write_at(file->inode, buffer, size, file->pos);

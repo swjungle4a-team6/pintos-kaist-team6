@@ -71,6 +71,8 @@ void syscall_init(void)
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
+	// lock 초기화
+	// 각 시스템 콜에서 lock 획득 후 시스템 콜 처리, 시스템 콜 완료 시 lock 반납
 	lock_init(&file_rw_lock);
 }
 
@@ -98,6 +100,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = process_wait(f->R.rdi);
 		break;
 	case SYS_CREATE:
+		// rdi : argc,	rsi : argv
 		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_REMOVE:
@@ -143,24 +146,32 @@ void check_address(const uint64_t *uaddr)
 		exit(-1);
 	}
 }
-/* 파일 디스크립터로 파일 검색 하여 파일 구조체 반환 */
+/* find_file_by_fd()
+ * 프로세스의 파일 디스크립터 테이블을 검색하여 파일 객체의 주소를 리턴
+ * 파일 디스크립터로 파일 검색 하여 파일 구조체 반환
+ */
 static struct file *find_file_by_fd(int fd)
 {
 	struct thread *cur = thread_current();
 
 	// Error - invalid id
+	// 해당 테이블에 파일 객체가 없을 시 NULL 반환
 	if (fd < 0 || fd >= FDCOUNT_LIMIT)
 		return NULL;
 
 	return cur->fdTable[fd];
 }
-/* 새로 만든 파일을 파일 디스크립터 테이블에 추가 */
+/* add_file_to_fdt()
+ * 파일 객체에 대한 파일 디스크립터 생성
+새로 만든 파일을 파일 디스크립터 테이블에 추가 */
 int add_file_to_fdt(struct file *file)
 {
 	struct thread *cur = thread_current();
 	struct file **fdt = cur->fdTable; // file descriptor table
 
-	// Project2-extra - (multi-oom) Find open spot from the front
+	/* Project2 user programs
+	 * 다음 File Descriptor 값 1 증가
+	 */
 	while (cur->fdIdx < FDCOUNT_LIMIT && fdt[cur->fdIdx])
 		cur->fdIdx++;
 
@@ -169,9 +180,13 @@ int add_file_to_fdt(struct file *file)
 		return -1;
 
 	fdt[cur->fdIdx] = file;
+	// 추가된 파일 객체의 File Descriptor 반환
 	return cur->fdIdx;
 }
-/* 파일 테이블에서 fd 제거 */
+/* remove_file_from_fdt()
+ * 파일 디스크립터에 해당하는 파일을 닫고 해당 엔트리 초기화
+ * 파일 테이블에서 fd 제거
+ */
 void remove_file_from_fdt(int fd)
 {
 	struct thread *cur = thread_current();
@@ -251,17 +266,23 @@ int exec(char *file_name)
 		return -1;
 
 	// Not reachable
-	// schedule 이후 run이었던 thread의 context는 실행되지 않음
+
 	NOT_REACHED();
 
 	return 0;
 }
 
-/* 버퍼에 있는 내용을 fd 파일에 작성. 파일에 작성한 바이트 반환 */
+/* write()
+ * 열린 파일의 데이터를 기록하는 시스템 콜
+ * 버퍼에 있는 내용을 fd 파일에 작성. 파일에 작성한 바이트 반환
+ * 성공 시 기록한 데이터의 바이트 수를 반환, 실패시 -1 반환
+ * buffer : 기록할 데이터를 저장한 버퍼의 주소 값, size : 기록할 데이터의 크기
+ * fd 값이 1일 때? 버퍼에 저장된 데이터를 화면에 출력 (putbuf() 이용)
+ */
 write(int fd, const void *buffer, unsigned size)
 {
 	check_address(buffer);
-	int ret;
+	int ret; // 기록한 데이터의 바이트 수, 실패시 -1
 
 	struct file *fileobj = find_file_by_fd(fd);
 	if (fileobj == NULL)
@@ -280,7 +301,7 @@ write(int fd, const void *buffer, unsigned size)
 		}
 		else
 		{
-			/* 버퍼를 콘솔에 출력 */
+			/* 문자열(버퍼)을 화면(콘솔)에 출력해주는 함수 */
 			putbuf(buffer, size);
 			ret = size;
 		}
@@ -299,7 +320,13 @@ write(int fd, const void *buffer, unsigned size)
 	return ret;
 }
 
-/* 요청한 파일을 버퍼에 읽어온다. 읽어들인 바이트를 반환 */
+/* read()
+ * 요청한 파일을 버퍼에 읽어온다. 읽어들인 바이트를 반환
+ * 열린 파일의 데이터를 읽는 시스템 콜
+ * 성공 시 읽은 바이트 수를 반환, 실패 시 -1 반환
+ * buffet : 읽은 데이터를 저장한 버퍼의 주소 값, size : 읽을 데이터의 크기
+ * fd 값이 0일 때? 키보드의 데이터를 읽어 버퍼에 저장 (input_getc() 이용)
+ */
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer);
@@ -312,7 +339,7 @@ int read(int fd, void *buffer, unsigned size)
 
 	if (fileobj == STDIN) // 1
 	{
-		if (!cur->stdin_count)
+		if (cur->stdin_count == 0)
 		{
 			// Not reachable
 			NOT_REACHED();

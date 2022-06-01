@@ -425,7 +425,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
-	// P2-4 CLose all opened files
+	// 프로세스 종료가 일어날 경우 프로세스에 열려있는 모든 파일을 닫음
 	for (int i = 0; i < FDCOUNT_LIMIT; i++)
 	{
 		close(i);
@@ -562,6 +562,8 @@ load(const char *file_name, struct intr_frame *if_)
 	bool success = false;
 	int i;
 
+	/* filesys_lock 획득 */
+	/* Open executable file */
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
@@ -572,10 +574,12 @@ load(const char *file_name, struct intr_frame *if_)
 	file = filesys_open(file_name);
 	if (file == NULL)
 	{
+		/* filesys_lock 해제*/
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
 
+	/* thread 구조체의 run_file을 현재 실행 할 파일로 초기화 */
 	t->running = file;
 
 	/* 현재 오픈한 파일에 다른내용 쓰지 못하게 함 */
@@ -661,7 +665,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	// file_close (file);
 	return success;
 }
 
