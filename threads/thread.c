@@ -789,6 +789,7 @@ int64_t get_next_tick_to_awake(void)
 /* 현재 수행중인 스레드와 가장높은 순위의 스레드를 비교해서 스케줄링 → 선점 판단 */
 void test_max_priority(void)
 {
+
 	int curr_pri = thread_get_priority();
 	struct thread *ready_thread = list_entry(list_begin(&ready_list), struct thread, elem);
 

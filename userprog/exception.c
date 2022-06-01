@@ -157,6 +157,7 @@ page_fault(struct intr_frame *f)
 		   not_present ? "not present" : "rights violation",
 		   write ? "writing" : "reading",
 		   user ? "user" : "kernel");
-	exit(-1);
+
 	// kill(f);
+	exit(-1); // 에러 메시지 출력을 방지하기 위해 exit(-1) 을 호출하도록 수정
 }

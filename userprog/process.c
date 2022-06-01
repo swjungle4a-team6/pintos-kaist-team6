@@ -34,6 +34,7 @@ static void
 process_init(void)
 {
 	struct thread *current = thread_current();
+	// lock_init(&filesys_lock);
 }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
@@ -274,17 +275,12 @@ error:
  * Returns -1 on fail. */
 int process_exec(void *f_name)
 {
-	//    printf("\n##### debuging ##### start process_exec \n f_name : %s \n\n", f_name);
 	char *file_name = f_name;
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
-
-	/* To Do : Argument passing
-	 * parsing file name and arguments
-	 */
 
 	/*
 	 * SEL_UDSEG : user data segment  SEL_UCSEG : useo code segment
@@ -317,7 +313,9 @@ int process_exec(void *f_name)
 		palloc_free_page(file_name);
 		return -1;
 	}
-
+	/* To Do : Argument passing
+	 * parsing file name and arguments
+	 */
 	argument_stack(parse, cnt, &_if.rsp);
 	_if.R.rdi = cnt;
 	_if.R.rsi = _if.rsp + WORD_ALIGN;
@@ -425,7 +423,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
-	// 프로세스 종료가 일어날 경우 프로세스에 열려있는 모든 파일을 닫음
+	// 프로세스 종료가 일어날 경우 열려있는 모든 파일을 닫음
 	for (int i = 0; i < FDCOUNT_LIMIT; i++)
 	{
 		close(i);
@@ -563,7 +561,7 @@ load(const char *file_name, struct intr_frame *if_)
 	int i;
 
 	/* filesys_lock 획득 */
-	/* Open executable file */
+	// lock_acquire(&filesys_lock);
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
@@ -575,6 +573,7 @@ load(const char *file_name, struct intr_frame *if_)
 	if (file == NULL)
 	{
 		/* filesys_lock 해제*/
+		// lock_release(&filesys_lock);
 		printf("load: %s: open failed\n", file_name);
 		goto done;
 	}
@@ -584,6 +583,9 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* 현재 오픈한 파일에 다른내용 쓰지 못하게 함 */
 	file_deny_write(file);
+
+	/* filesys_lock 해제*/
+	// lock_release(&filesys_lock);
 
 	/* Read and verify executable header. */
 	if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr || memcmp(ehdr.e_ident, "\177ELF\2\1\1", 7) || ehdr.e_type != 2 || ehdr.e_machine != 0x3E // amd64
@@ -657,9 +659,6 @@ load(const char *file_name, struct intr_frame *if_)
 
 	/* Start address. */
 	if_->rip = ehdr.e_entry;
-
-	/* TODO: Your code goes here.
-	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
 	success = true;
 
