@@ -166,11 +166,14 @@ static struct file *find_file_by_fd(int fd)
 새로 만든 파일을 파일 디스크립터 테이블에 추가 */
 int add_file_to_fdt(struct file *file)
 {
+	// 현재 스레드의 파일 디스크립터 테이블을 가져온다.
 	struct thread *cur = thread_current();
 	struct file **fdt = cur->fdTable; // file descriptor table
 
 	/* Project2 user programs
 	 * 다음 File Descriptor 값 1 증가
+	 * 최대로 열 수 있는 파일 제한(FDCOUNT_LIMIT)을 넘지 않고, 
+	 * 해당 fd에 이미 열려있는 파일이 있다면 1씩 증가한다.
 	 */
 	while (cur->fdIdx < FDCOUNT_LIMIT && fdt[cur->fdIdx])
 		cur->fdIdx++;
@@ -179,6 +182,7 @@ int add_file_to_fdt(struct file *file)
 	if (cur->fdIdx >= FDCOUNT_LIMIT)
 		return -1;
 
+	// 가용한 fd로 fdt[fd] 에 인자로 받은 file을 넣는다.
 	fdt[cur->fdIdx] = file;
 	// 추가된 파일 객체의 File Descriptor 반환
 	return cur->fdIdx;
@@ -234,12 +238,13 @@ bool remove(const char *file)
 int open(const char *file)
 {
 	check_address(file);
-	lock_acquire(&file_rw_lock); // 
+	lock_acquire(&file_rw_lock); 
+	// 해당 파일의 이름으로 열고, 해당 파일의 객체를 리턴한다.
 	struct file *fileobj = filesys_open(file);
 
 	if (fileobj == NULL)
 		return -1;
-
+	// 서로 만든  파일을 현재 스레드의 파일디스크립터 테이블에 추가하고 해당 fd를 리턴한다.
 	int fd = add_file_to_fdt(fileobj);
 
 	/* 파일 디스크립터가 가득찬 경우 */
@@ -247,6 +252,7 @@ int open(const char *file)
 		file_close(fileobj);
 
 	lock_release(&file_rw_lock);
+	// 해당 파일의 디스크립터를 리턴
 	return fd;
 }
 
@@ -377,12 +383,16 @@ int read(int fd, void *buffer, unsigned size)
 
 void close(int fd)
 {
+	// 해당 fd가 가리키는 file객체를 가져온다.
 	struct file *fileobj = find_file_by_fd(fd);
 	if (fileobj == NULL)
 		return;
 
 	struct thread *cur = thread_current();
 
+	/* fd가 0(stdin), 1(stdout)이면(닫으려는 파일이 표준입 or 출력을 가리키면) 
+	 * stdin_count과 stdout_count를 1 감소시킨다.
+	 */
 	if (fd == 0 || fileobj == STDIN)
 	{
 		cur->stdin_count--;
@@ -392,8 +402,13 @@ void close(int fd)
 		cur->stdout_count--;
 	}
 
+	// 현재 스레드의 fdt에서 fd를 가진 파일을 삭제한다.(=NULL)
 	remove_file_from_fdt(fd);
 
+	/*
+	 * stdin과 stdout은 dupcount가 없으므로 그냥 리턴하지만, 
+	 * 해당 파일의 dupcount(refcnt)가 0이면 해당 파일의 객체를 인자로 파일을 닫는다.
+	 */
 	if (fd <= 1 || fileobj <= 2)
 		return;
 

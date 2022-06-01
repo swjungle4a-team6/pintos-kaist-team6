@@ -84,7 +84,13 @@ filesys_open(const char *name)
 		dir_lookup(dir, name, &inode); // 해당 dir에 해당되는 name에 해당되는 inode에 저장
 	dir_close(dir);					   // 디렉토리는 쓰고 닫아야 함
 
-	return file_open(inode);
+	return file_open(inode);		   // 해당 inode로 연 파일 객체를 리턴
+
+	/* inode란? 리눅스 시스템에서, 파일 시스템을 처리할 때, 리눅스 전용 특수한 인덱스를 아이노드라고 한다. 
+	 * 아이노드는 index-node의 줄임말이다. 이름에서 유추할 수 있듯이 무언가를 빠르게 찾기위한 노드이며, 
+	 * 그 무언가는 리눅스 시스템에서 파일을 의미한다. 즉, 아이노드는 리눅스의 모든 파일에 일종의 번호를 부여한다. 
+	 * 아이노드는 파일에 대한 정보(메타데이터)를 포함하고 있고, 인덱스 값도 가진 노드(데이터)이다. 
+	 */
 }
 
 /* Deletes the file named NAME.
