@@ -221,9 +221,9 @@ tid_t thread_create(const char *name, int priority,
 	t->fdTable = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
 	if (t->fdTable == NULL)
 		return TID_ERROR;
-	t->fdIdx = 2;
-	t->fdTable[0] = 1;
-	t->fdTable[1] = 2;
+	t->fdIdx = 2;	   // 2부터 File Descriptor 값 할당
+	t->fdTable[0] = 1; // STDIN
+	t->fdTable[1] = 2; // STDOUT
 
 	t->stdin_count = 1;
 	t->stdout_count = 1;

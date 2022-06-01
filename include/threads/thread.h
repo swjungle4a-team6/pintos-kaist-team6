@@ -135,10 +135,15 @@ struct thread
 	struct semaphore fork_sema;
 	struct semaphore free_sema;
 
-	/* fd table 파일 구조체와 fd index */
+	/* fd table 파일 구조체와 fd index
+	 * 각 프로세스는 자신의 File Descriptor 테이블을 가지고 있음 (파일 객체 포인터의 배열)
+	 */
 	struct file **fdTable;
 	int fdIdx;
 
+	// stdin_count와 stdout_count?
+	// 표준입출력인 fd가 여러 개인 경우를 고려하여 만든 변수.
+	// 즉, 입출력 fd가 0이 될 때까지 close를 닫으면 안 된다.
 	int stdin_count;
 	int stdout_count;
 
