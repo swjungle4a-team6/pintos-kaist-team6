@@ -234,7 +234,7 @@ bool remove(const char *file)
 int open(const char *file)
 {
 	check_address(file);
-	lock_acquire(&file_rw_lock);
+	lock_acquire(&file_rw_lock); // 
 	struct file *fileobj = filesys_open(file);
 
 	if (fileobj == NULL)
@@ -279,12 +279,12 @@ int exec(char *file_name)
  * buffer : 기록할 데이터를 저장한 버퍼의 주소 값, size : 기록할 데이터의 크기
  * fd 값이 1일 때? 버퍼에 저장된 데이터를 화면에 출력 (putbuf() 이용)
  */
-write(int fd, const void *buffer, unsigned size)
+int write(int fd, const void *buffer, unsigned size)
 {
 	check_address(buffer);
-	int ret; // 기록한 데이터의 바이트 수, 실패시 -1
+	int ret = 0; // 기록한 데이터의 바이트 수, 실패시 -1
 
-	struct file *fileobj = find_file_by_fd(fd);
+	struct file *fileobj = find_file_by_fd(fd); // 실패시 NULL 반환
 	if (fileobj == NULL)
 		return -1;
 
@@ -330,7 +330,7 @@ write(int fd, const void *buffer, unsigned size)
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer);
-	int ret;
+	int ret = 0;
 	struct thread *cur = thread_current();
 
 	struct file *fileobj = find_file_by_fd(fd);
@@ -434,12 +434,19 @@ tid_t fork(const char *thread_name, struct intr_frame *f)
 	return process_fork(thread_name, f);
 }
 
+/* dup2()
+ * 식별자 테이블 엔트리의 이전 내용을 덮어써서 식별자 테이블 엔트리 oldfd를 newfd로 복사
+ */
 int dup2(int oldfd, int newfd)
 {
-	if (oldfd == newfd)
+	struct file *fileobj = find_file_by_fd(oldfd);
+
+	// oldfd가 불분명하면 이 시스템 콜은 실패하며 -1을 리턴, newfd는 닫히지 않는다.
+
+	//	oldfd가 명확하고 newfd가 oldfd와 같은 값을 가진다면, dup2() 함수는 실행되지 않고 newfd값을 그대로 반환한다.
+	if (oldfd == newfd) // 만약 newfd가 이전에 열렸다면, 재사용하기 전에 자동으로 닫힌다.
 		return newfd;
 
-	struct file *fileobj = find_file_by_fd(oldfd);
 	if (fileobj == NULL)
 		return -1;
 

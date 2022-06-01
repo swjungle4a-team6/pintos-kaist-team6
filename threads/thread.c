@@ -221,7 +221,13 @@ tid_t thread_create(const char *name, int priority,
 	t->fdTable = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
 	if (t->fdTable == NULL)
 		return TID_ERROR;
-	t->fdIdx = 2;	   // 2부터 File Descriptor 값 할당
+
+	/* 추가로 fd table의 표준입력과 표준출력에 더미의 값을 넣는다.
+	 * 이는 read, write, close, dup2 시스템 콜을 사용할 때, 표준 입력, 표준 출력을 구분하기 위한 장치로 쓰인다.
+	 * 임의로 1, 2값을 추가
+	 */
+	t->fdIdx = 2; // 2부터 File Descriptor 값 할당
+	// dummy values to distinguish fd 0 and 1 from NULL
 	t->fdTable[0] = 1; // STDIN
 	t->fdTable[1] = 2; // STDOUT
 

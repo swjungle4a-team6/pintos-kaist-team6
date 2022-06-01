@@ -10,7 +10,8 @@ struct file
     struct inode *inode; /* File's inode. */
     off_t pos;           /* Current position. */
     bool deny_write;     /* Has file_deny_write() been called? */
-    int dupCount;        /* dupCount 가 0일때만 파일 종료 */
+    // 표준 입출력을 가리키는 fd가 아닌 경우도 있으니 dup_count변수를 만들어야 한다.
+    int dupCount; /* dupCount 가 0일때만 close() */
 };
 
 /* Opening and closing files. */
