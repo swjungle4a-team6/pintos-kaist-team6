@@ -205,7 +205,6 @@ __do_fork(void *aux)
 		goto error;
 #endif
 
-
 	/* TODO: Your code goes here.
 	 * TODO: Hint) To duplicate the file object, use `file_duplicate`
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
