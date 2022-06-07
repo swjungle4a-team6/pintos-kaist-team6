@@ -199,7 +199,7 @@ void lock_init(struct lock *lock)
 void lock_acquire(struct lock *lock)
 {
 	/*
-	 * project 3 - Priority Donation
+	 * project 1 - Priority Donation
 	 * lock을 점유하고 있는 스레드와 요청 하는 스레드의 우선순위를 비교하여
 	 * priority donation을 수행하도록 수정
 	 */
@@ -260,10 +260,12 @@ bool lock_try_acquire(struct lock *lock)
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
+
 void lock_release(struct lock *lock)
 {
 	/* donation list 에서 스레드를 제거하고 우선순위를 다시 계산하도록
-	remove_with_lock(), refresh_prioriy() 함수를 호출 */
+	 * remove_with_lock(), refresh_prioriy() 함수를 호출
+	 */
 	if (!thread_mlfqs)
 	{
 		ASSERT(lock != NULL);
@@ -333,8 +335,7 @@ void cond_init(struct condition *cond)
    we need to sleep. */
 void cond_wait(struct condition *cond, struct lock *lock)
 {
-	/* Project2 - Priority Scheduling
-	 * condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
+	/* Project1 - Priority Scheduling
 	 */
 	struct semaphore_elem waiter; // 세마포어의 element
 
@@ -343,10 +344,11 @@ void cond_wait(struct condition *cond, struct lock *lock)
 	ASSERT(!intr_context());
 	ASSERT(lock_held_by_current_thread(lock));
 
+	// condition variable의 waiters list에 우선순위로 삽입
 	sema_init(&waiter.semaphore, 0);
 	list_insert_ordered(&cond->waiters, &waiter.elem, cmp_sem_priority, NULL);
 
-	// sema_down 에서 block 될 수 있기 때문에 다른 쓰레드가 사용할 수 있게 lock을 풀어준다.
+	// sema_down 에서 block 될 수 있기 때문에 다른 쓰레드가 사용할 수 있게 lock을 해제한다.
 	lock_release(lock);
 	sema_down(&waiter.semaphore);
 	lock_acquire(lock);
@@ -362,11 +364,10 @@ void cond_wait(struct condition *cond, struct lock *lock)
 void cond_signal(struct condition *cond, struct lock *lock UNUSED)
 {
 
-	/* Project2 - Priority Scheduling
+	/* Project1 - Priority Scheduling
 	 * condition variable의 waiters list를 우선순위로 재정렬
 	 * 대기 중에 우선순위가 변경되었을 가능성이 있음
 	 */
-
 	ASSERT(cond != NULL);
 	ASSERT(lock != NULL);
 	ASSERT(!intr_context());
@@ -407,6 +408,7 @@ bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void
 	struct thread *th_a = list_entry(list_begin(&(sem_a->semaphore.waiters)), struct thread, elem);
 
 	struct thread *th_b = list_entry(list_begin(&(sem_b->semaphore.waiters)), struct thread, elem);
+
 	// 첫 번째 인자의 우선순위가 두 번째 인자의 우선순위보다 높으면 1을 반환, 낮으면 0을 반환
 	return th_a->priority > th_b->priority ? true : false;
 }

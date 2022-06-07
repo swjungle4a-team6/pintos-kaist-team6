@@ -121,8 +121,6 @@ void timer_sleep(int64_t ticks)
 	int64_t start = timer_ticks();
 
 	ASSERT(intr_get_level() == INTR_ON);
-	// while (timer_elapsed (start) < ticks)
-	// 	thread_yield ();
 
 	// 수정
 	thread_sleep(start + ticks); // 일어날 시간
@@ -163,6 +161,8 @@ timer_interrupt(struct intr_frame *args UNUSED)
 		{
 			mlfqs_recalc_priority();
 		}
+		thread_awake(ticks);
+		return;
 	}
 
 	thread_awake(ticks);

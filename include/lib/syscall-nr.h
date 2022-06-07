@@ -33,7 +33,6 @@ enum {
 
 	/* Extra for Project 2 */
 	SYS_DUP2,                   /* Duplicate the file descriptor */
-
 	SYS_MOUNT,
 	SYS_UMOUNT,
 };
