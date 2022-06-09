@@ -82,6 +82,7 @@ int main(void)
 	console_init();
 
 	/* Initialize memory system. */
+	// 유저 10mb, 커널 10mb 총 20mb 사용?
 	mem_end = palloc_init();
 	malloc_init();
 	paging_init(mem_end);
@@ -166,6 +167,7 @@ paging_init(uint64_t mem_end)
 	}
 
 	// reload cr3
+	// cr3 : 
 	pml4_activate(0);
 }
 
