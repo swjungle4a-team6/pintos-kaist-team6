@@ -71,6 +71,9 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+	struct hash *hash = spt->hash;
+
+	// hash_entry(page's elem, struct page, h_elem); -> 페이지
 
 	return page;
 }
@@ -80,10 +83,11 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
-	int succ = false;
 	/* TODO: Fill this function. */
+	if (hash_insert(spt->hash, &page->h_elem))
+		return false;
 
-	return succ;
+	return true;
 }
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
