@@ -332,7 +332,7 @@ palloc_get_multiple(enum palloc_flags flags, size_t page_cnt)
    available, returns a null pointer, unless PAL_ASSERT is set in
    FLAGS, in which case the kernel panics.
 
-   * 사용 가능한 단일 페이지를 가져오고 커널 가상 주소를 반환
+   * 사용 가능한 단일 페이지를 가져오고 커널 가상 주소(kva)를 반환
    * PAL_USER가 설정된 경우 페이지는 사용자 풀에서 가져오고 그렇지 않은 경우 커널 풀에서 가져옴
    * PAL_ZERO가 FLGS에 설정되어 있으면 페이지는 0으로 채워집니다.
    * 사용 가능한 페이지가 없으면 PAL_ASSERT가 flags에 설정되어 있지 않으면 null 포인터를 반환합니다. 이 경우 커널 패닉이 발생.
