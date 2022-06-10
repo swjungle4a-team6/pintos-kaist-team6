@@ -45,12 +45,11 @@ struct thread;
 struct page
 {
 	const struct page_operations *operations;
-	void *va;			 /* Address in terms of user space */
+	void *va;			 /* virtual address */
 	struct frame *frame; /* Back reference for frame */
 
 	/* Your implementation */
 	struct hash_elem h_elem; /* Hash table element. */
-	void *addr;				 /* virtual address */
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -68,9 +67,12 @@ struct page
 /* The representation of "frame" */
 struct frame
 {
-	void *kva;
+	void *kva; // kernel virtual address
 	struct page *page;
+
+	struct list_elem f_elem;
 };
+
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.

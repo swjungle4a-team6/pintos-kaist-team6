@@ -23,6 +23,7 @@
 #include "vm/vm.h"
 #endif
 
+// #define VM 1
 #define WORD_ALIGN 8
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
@@ -711,8 +712,6 @@ validate_segment(const struct Phdr *phdr, struct file *file)
 	/* It's okay. */
 	return true;
 }
-
-#define VM 1
 
 #ifndef VM
 /* Codes of this block will be ONLY USED DURING project 2.
