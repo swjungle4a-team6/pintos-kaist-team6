@@ -152,24 +152,23 @@ void syscall_handler(struct intr_frame *f UNUSED)
 /* 사용할 수 있는 주소인지 확인하는 함수. 사용 불가 시 -1 종료 */
 void check_address(const uint64_t *addr)
 {
-	struct thread *cur = thread_current();
 #ifndef VM
-	if (addr == NULL || !(is_user_vaddr(addr)) || !pml4_get_page(cur->pml4, addr))
+	if (addr == NULL || !(is_user_vaddr(addr)) || !pml4_get_page(&thread_current()->pml4, addr))
 	{
 		exit(-1);
 	}
 #else
 
-	if (!is_kernel_vaddr(addr))
+	// if (!is_kernel_vaddr(addr))
+	// {
+	// 	spt_find_page(&cur->spt, addr);
+	// }
+	// else
+	// 	exit(-1);
+	if (!spt_find_page(&thread_current()->spt, addr))
 	{
-		spt_find_page(&cur->spt, addr);
+		exit(-1); // terminated
 	}
-	else
-		exit(-1);
-		// if (!spt_find_page(&thread_current()->spt, addr))
-		// {
-		// 	exit(-1); // terminated
-		// }
 #endif
 }
 /* find_file_by_fd()

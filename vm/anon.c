@@ -28,16 +28,25 @@ void vm_anon_init(void)
 bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 {
 	/* Set up the handler */
+	// page->operations = &anon_ops;
+	// struct anon_page *anon_page = &page->anon;
+	// if (type & VM_MARKER_0)
+	// {
+	// 	anon_page->is_stack = true;
+	// }
+	// else
+	// {
+	// 	return false;
+	// }
+	struct uninit_page *uninit = &page->uninit;
+	memset(uninit, 0, sizeof(struct uninit_page));
+
+	/* Set up the handler */
 	page->operations = &anon_ops;
+
 	struct anon_page *anon_page = &page->anon;
-	if (type & VM_MARKER_0)
-	{
-		anon_page->is_stack = true;
-	}
-	else
-	{
-		return false;
-	}
+	anon_page->swap_slot = -1;
+	return true;
 }
 
 /* Swap in the page by read contents from the swap disk. */
@@ -59,4 +68,10 @@ static void
 anon_destroy(struct page *page)
 {
 	struct anon_page *anon_page = &page->anon;
+
+	/* eleshock */
+	struct frame *fr = page->frame;
+	list_remove(&fr->f_elem);
+	// palloc_free_page(fr->kva); // pml4 destroy에서 알아서 해줌
+	free(fr);
 }

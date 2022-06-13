@@ -1,6 +1,5 @@
 #include "userprog/process.h"
 #include <debug.h>
-// #define VM 1
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
@@ -24,7 +23,6 @@
 #include "vm/vm.h"
 #endif
 
-// #define VM 1
 #define WORD_ALIGN 8
 static void process_cleanup(void);
 static bool load(const char *file_name, struct intr_frame *if_);
@@ -69,10 +67,6 @@ tid_t process_create_initd(const char *file_name)
 static void
 initd(void *f_name)
 {
-#ifdef VM
-	supplemental_page_table_init(&thread_current()->spt);
-#endif
-
 	process_init();
 
 	if (process_exec(f_name) < 0)
@@ -189,6 +183,7 @@ __do_fork(void *aux)
 
 	/* 부모의 intr_frame을 if_에 복사 */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
+	current->running = file_duplicate(parent->running); // 자식 스레드가 부모와 같은 file을 가리키지 않도록 file_duplicate로 복제
 	/* if_의 리턴값을 0으로 설정? */
 	if_.R.rax = 0;
 
@@ -296,6 +291,10 @@ int process_exec(void *f_name)
 	//
 	process_cleanup(); // current page의 pml4 초기화
 	char *parse[128];  // It is better not to set an arbitrary limit. You may impose a limit of 128 open files per process, if necessary. But if you want to implement extra requirements, there should be no limitation.
+
+#ifdef VM
+	supplemental_page_table_init(&thread_current()->spt);
+#endif
 
 	char *next_ptr;
 	char *token = strtok_r(file_name, " ", &next_ptr);
@@ -822,39 +821,29 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-struct segment
-{
-	off_t ofs;
-	uint32_t read_bytes;
-	uint32_t zero_bytes;
-	// struct file *file;
-};
-
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	if (page == NULL)
-	{
-		return false;
-	}
+
 	struct segment *aux_data = aux;
 	struct file *f = &thread_current()->running;
 	off_t ofs = aux_data->ofs;
 	uint32_t page_read_bytes = aux_data->read_bytes;
 	uint32_t page_zero_bytes = aux_data->zero_bytes;
 
-	file_seek(f, ofs);
+	// file_seek(f, ofs);
 
 	if (file_read(f, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
 	{
-		palloc_free_page(page->frame->kva);
+		// palloc_free_page(page->frame->kva);
 		return false;
 	}
 	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
 
+	free(aux_data);
 	return true;
 	// 프레임에 안올리면 큰일남 (by. sh)
 }
@@ -912,8 +901,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		ofs += page_read_bytes;
 		/* ----------------------- */
 		upage += PGSIZE;
-
-		free(segment);
 	}
 	return true;
 }
