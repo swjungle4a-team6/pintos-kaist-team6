@@ -6,6 +6,7 @@
 #include "lib/kernel/hash.h"
 #include "include/threads/mmu.h"
 #include "include/threads/vaddr.h"
+#include "include/userprog/process.h"
 
 struct list frame_table;
 struct list_elem *clock_pointer;
@@ -88,8 +89,8 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		page->writable = writable;
 
 		/* TODO: Insert the page into the spt. */
-		spt_insert_page(spt, page);
-		return true;
+		bool succ = spt_insert_page(spt, page);
+		return succ ? true : false;
 	}
 err:
 	return false;
@@ -241,7 +242,7 @@ bool vm_claim_page(void *va UNUSED)
 	/* TODO: Fill this function */
 	page = spt_find_page(&thread_current()->spt, va);
 	/* ------------------------ */
-	return page ? vm_do_claim_page(page) : false;
+	return page != NULL ? vm_do_claim_page(page) : false;
 }
 
 /* Claim the PAGE and set up the mmu. */
@@ -294,7 +295,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	page = spt_find_page(spt, addr);
 
 	/* --------------------------------- */
-	return page ? vm_do_claim_page(page) : false;
+	return page != NULL ? vm_do_claim_page(page) : false;
 }
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
@@ -315,7 +316,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
 	struct hash_iterator i;
-	hash_first(&i, &src->hash); //우리라면 여기에 &src->hash를 넣어야함
+	hash_first(&i, &src->hash);
 	while (hash_next(&i))
 	{
 		struct page *parent_page = hash_entry(hash_cur(&i), struct page, h_elem);
