@@ -19,8 +19,8 @@ enum vm_type
 
 	/* Auxillary bit flag marker for store information. You can add more
 	 * markers, until the value is fit in the int. */
-	VM_MARKER_0 = (1 << 3),
-	VM_MARKER_1 = (1 << 4),
+	VM_MARKER_0 = (1 << 3), // stack
+	// VM_MARKER_1 = (1 << 4), // 필요할 때 마다 추가해서 쓰라는 말 (by. HSH)
 
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),
@@ -127,7 +127,6 @@ bool page_less(const struct hash_elem *a_,
 unsigned
 page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
-static void
-vm_stack_growth(void *addr UNUSED);
+static void vm_stack_growth(void *addr UNUSED);
 
 #endif /* VM_VM_H */

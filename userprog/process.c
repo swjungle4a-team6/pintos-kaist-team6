@@ -1,5 +1,6 @@
 #include "userprog/process.h"
 #include <debug.h>
+// #define VM 1
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
@@ -540,8 +541,6 @@ struct ELF64_PHDR
 /* Abbreviations */
 #define ELF ELF64_hdr
 #define Phdr ELF64_PHDR
-
-static bool setup_stack(struct intr_frame *if_);
 static bool validate_segment(const struct Phdr *, struct file *);
 static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 						 uint32_t read_bytes, uint32_t zero_bytes,
@@ -782,8 +781,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 }
 
 /* Create a minimal stack by mapping a zeroed page at the USER_STACK */
-static bool
-setup_stack(struct intr_frame *if_)
+static bool setup_stack(struct intr_frame *if_)
 {
 	uint8_t *kpage;
 	bool success = false;
@@ -824,12 +822,41 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+struct segment
+{
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+	// struct file *file;
+};
+
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	if (page == NULL)
+	{
+		return false;
+	}
+	struct segment *aux_data = aux;
+	struct file *f = &thread_current()->running;
+	off_t ofs = aux_data->ofs;
+	uint32_t page_read_bytes = aux_data->read_bytes;
+	uint32_t page_zero_bytes = aux_data->zero_bytes;
+
+	file_seek(f, ofs);
+
+	if (file_read(f, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
+	{
+		palloc_free_page(page->frame->kva);
+		return false;
+	}
+	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
+
+	return true;
+	// 프레임에 안올리면 큰일남 (by. sh)
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -846,6 +873,9 @@ lazy_load_segment(struct page *page, void *aux)
  *
  * Return true if successful, false if a memory allocation error
  * or disk read error occurs. */
+
+/* 해당 페이지가 디스크 상의 어디에 위치해있는지 기록하기 위한 struct */
+
 static bool
 load_segment(struct file *file, off_t ofs, uint8_t *upage,
 			 uint32_t read_bytes, uint32_t zero_bytes, bool writable)
@@ -863,7 +893,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
+		struct segment *segment = malloc(sizeof(struct segment));
+		segment->ofs = ofs;
+		segment->read_bytes = page_read_bytes;
+		segment->zero_bytes = page_zero_bytes;
+
+		void *aux = segment;
+
+		/* --------------------------------------------------------------- */
 		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
 											writable, lazy_load_segment, aux))
 			return false;
@@ -871,8 +908,12 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
+		/* virtual memory 추가 코드*/
 		ofs += page_read_bytes;
+		/* ----------------------- */
 		upage += PGSIZE;
+
+		free(segment);
 	}
 	return true;
 }
@@ -888,6 +929,13 @@ setup_stack(struct intr_frame *if_)
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
+	vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, 1, NULL, NULL);
+	success = vm_claim_page(stack_bottom);
+
+	if (success)
+	{
+		if_->rsp = USER_STACK;
+	}
 
 	return success;
 }
