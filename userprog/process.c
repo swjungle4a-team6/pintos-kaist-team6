@@ -829,12 +829,12 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: VA is available when calling this function. */
 
 	struct segment *aux_data = aux;
-	struct file *f = &thread_current()->running;
+	struct file *f = thread_current()->running;
 	off_t ofs = aux_data->ofs;
 	uint32_t page_read_bytes = aux_data->read_bytes;
 	uint32_t page_zero_bytes = aux_data->zero_bytes;
 
-	// file_seek(f, ofs);
+	file_seek(f, ofs);
 
 	if (file_read(f, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
 	{
@@ -845,7 +845,6 @@ lazy_load_segment(struct page *page, void *aux)
 
 	free(aux_data);
 	return true;
-	// 프레임에 안올리면 큰일남 (by. sh)
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
