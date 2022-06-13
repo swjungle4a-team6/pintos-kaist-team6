@@ -160,16 +160,16 @@ void check_address(const uint64_t *addr)
 	}
 #else
 
-	// if (!is_kernel_vaddr(addr))
-	// {
-	// 	spt_find_page(&cur->spt, addr);
-	// }
-	// else
-	// 	exit(-1);
-	if (!spt_find_page(&thread_current()->spt, addr))
+	if (!is_kernel_vaddr(addr))
 	{
-		exit(-1); // terminated
+		spt_find_page(&cur->spt, addr);
 	}
+	else
+		exit(-1);
+		// if (!spt_find_page(&thread_current()->spt, addr))
+		// {
+		// 	exit(-1); // terminated
+		// }
 #endif
 }
 /* find_file_by_fd()
