@@ -15,6 +15,7 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "threads/synch.h"
+#include "vm/vm.h"
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
@@ -37,7 +38,7 @@ int exec(char *file_name);
 int dup2(int oldfd, int newfd);
 
 /* syscall helper functions */
-void check_address(const uint64_t *uaddr);
+void check_address(const uint64_t *addr);
 static struct file *find_file_by_fd(int fd);
 int add_file_to_fdt(struct file *file);
 void remove_file_from_fdt(int fd);
@@ -93,6 +94,8 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = fork(f->R.rdi, f);
 		break;
 	case SYS_EXEC:
+		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
+		/* ------------------------------------------------------ */
 		if (exec(f->R.rdi) == -1)
 			exit(-1);
 		break;
@@ -107,15 +110,24 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = remove(f->R.rdi);
 		break;
 	case SYS_OPEN:
+		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
+		// check_valid_buffer
+		/* ------------------------------------------------------ */
 		f->R.rax = open(f->R.rdi);
 		break;
 	case SYS_FILESIZE:
 		f->R.rax = filesize(f->R.rdi);
 		break;
 	case SYS_READ:
+		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
+		// check_valid_buffer
+		/* ------------------------------------------------------ */
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
+		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
+		// check_valid_buffer
+		/* ------------------------------------------------------ */
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
@@ -138,13 +150,27 @@ void syscall_handler(struct intr_frame *f UNUSED)
 /* ------------------- helper function -------------------- */
 
 /* 사용할 수 있는 주소인지 확인하는 함수. 사용 불가 시 -1 종료 */
-void check_address(const uint64_t *uaddr)
+void check_address(const uint64_t *addr)
 {
 	struct thread *cur = thread_current();
-	if (uaddr == NULL || !(is_user_vaddr(uaddr)) || !pml4_get_page(cur->pml4, uaddr))
+#ifndef VM
+	if (addr == NULL || !(is_user_vaddr(addr)) || !pml4_get_page(cur->pml4, addr))
 	{
 		exit(-1);
 	}
+#else
+
+	// if (!is_kernel_vaddr(addr))
+	// {
+	// 	spt_find_page(&cur->spt, addr);
+	// }
+	// else
+	// 	exit(-1);
+	if (!spt_find_page(&thread_current()->spt, addr))
+	{
+		exit(-1); // terminated
+	}
+#endif
 }
 /* find_file_by_fd()
  * 프로세스의 파일 디스크립터 테이블을 검색하여 파일 객체의 주소를 리턴
@@ -172,7 +198,7 @@ int add_file_to_fdt(struct file *file)
 
 	/* Project2 user programs
 	 * 다음 File Descriptor 값 1 증가
-	 * 최대로 열 수 있는 파일 제한(FDCOUNT_LIMIT)을 넘지 않고, 
+	 * 최대로 열 수 있는 파일 제한(FDCOUNT_LIMIT)을 넘지 않고,
 	 * 해당 fd에 이미 열려있는 파일이 있다면 1씩 증가한다.
 	 */
 	while (cur->fdIdx < FDCOUNT_LIMIT && fdt[cur->fdIdx])
@@ -238,7 +264,7 @@ bool remove(const char *file)
 int open(const char *file)
 {
 	check_address(file);
-	lock_acquire(&file_rw_lock); 
+	lock_acquire(&file_rw_lock);
 	// 해당 파일의 이름으로 열고, 해당 파일의 객체를 리턴한다.
 	struct file *fileobj = filesys_open(file);
 
@@ -390,7 +416,7 @@ void close(int fd)
 
 	struct thread *cur = thread_current();
 
-	/* fd가 0(stdin), 1(stdout)이면(닫으려는 파일이 표준입 or 출력을 가리키면) 
+	/* fd가 0(stdin), 1(stdout)이면(닫으려는 파일이 표준입 or 출력을 가리키면)
 	 * stdin_count과 stdout_count를 1 감소시킨다.
 	 */
 	if (fd == 0 || fileobj == STDIN)
@@ -406,7 +432,7 @@ void close(int fd)
 	remove_file_from_fdt(fd);
 
 	/*
-	 * stdin과 stdout은 dupcount가 없으므로 그냥 리턴하지만, 
+	 * stdin과 stdout은 dupcount가 없으므로 그냥 리턴하지만,
 	 * 해당 파일의 dupcount(refcnt)가 0이면 해당 파일의 객체를 인자로 파일을 닫는다.
 	 */
 	if (fd <= 1 || fileobj <= 2)
@@ -483,3 +509,20 @@ int dup2(int oldfd, int newfd)
 	fdt[newfd] = fileobj;
 	return newfd;
 }
+// /* buffer를 사용하는 read() system call의 경우 buffer의 주소가 유효한 가상주소인지 아닌지 검사할 필요성이 있음
+//  * buffer의 유효성을 검사하는 함수
+//  * check_valid_buffer 구현시 check_address() 함수를 사용
+//  * writable변수는 buffer에 내용을 쓸 수 있는지 없는지 검사하는 변수
+//  */
+// void check_valid_buffer(void *buffer, unsigned size, void *rsp, bool writable)
+// {
+// 	/* 1. 인자로 받은 buffer로부터 buffer + size까지의 크기가 한 페이지의 크기를 넘을 수도 있음 */
+
+// 	/* check_address를 이용해서 주소의 유저영역 여부를 검사함과 동시에 vm_entry 구조체를 얻음 */
+
+// 	/* 해당 주소에 대한 vm_entry 존재여부와 vm_entry의 writable 멤버가 true인지 검사 */
+// 	// is_writable()
+
+// 	/* 위 내용을 buffer부터 buffer + size까지의 주소에 포함되는 vm_entry들에 대해 적용 */
+// 	/* ------------------------- */
+// }

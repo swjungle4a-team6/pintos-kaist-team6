@@ -420,3 +420,15 @@ remove_elem(struct hash *h, struct hash_elem *e)
 	h->elem_cnt--;
 	list_remove(&e->list_elem);
 }
+
+// /* Returns the page containing the given virtual address, or a null pointer if no such page exists. */
+// struct page *
+// page_lookup(const void *address)
+// {
+// 	struct page p;
+// 	struct hash_elem *e;
+
+// 	p.addr = address;
+// 	e = hash_find(&pages, &p.hash_elem);
+// 	return e != NULL ? hash_entry(e, struct page, hash_elem) : NULL;
+// }
