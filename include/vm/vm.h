@@ -50,6 +50,7 @@ struct page
 
 	/* Your implementation */
 	struct hash_elem h_elem; /* Hash table element. */
+	bool writable;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -72,7 +73,6 @@ struct frame
 
 	struct list_elem f_elem;
 };
-
 
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
@@ -126,5 +126,8 @@ bool page_less(const struct hash_elem *a_,
 			   const struct hash_elem *b_, void *aux UNUSED);
 unsigned
 page_hash(const struct hash_elem *p_, void *aux UNUSED);
+
+static void
+vm_stack_growth(void *addr UNUSED);
 
 #endif /* VM_VM_H */
