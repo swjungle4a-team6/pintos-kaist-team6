@@ -20,8 +20,7 @@ enum vm_type
 	/* Auxillary bit flag marker for store information. You can add more
 	 * markers, until the value is fit in the int. */
 	VM_MARKER_0 = (1 << 3), // stack
-	// VM_MARKER_1 = (1 << 4), // 필요할 때 마다 추가해서 쓰라는 말 (by. HSH)
-
+	VM_MARKER_1 = (1 << 4), // segment
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),
 };
@@ -74,6 +73,14 @@ struct frame
 	struct list_elem f_elem;
 };
 
+struct segment
+{
+	off_t ofs;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+	// struct file *file;
+};
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and
@@ -97,7 +104,7 @@ struct page_operations
  * All designs up to you for this. */
 struct supplemental_page_table
 {
-	struct hash *hash;
+	struct hash hash;
 };
 
 #include "threads/thread.h"
@@ -128,5 +135,6 @@ unsigned
 page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
 static void vm_stack_growth(void *addr UNUSED);
+void page_destructor(struct hash_elem *h, void *aux UNUSED);
 
 #endif /* VM_VM_H */
