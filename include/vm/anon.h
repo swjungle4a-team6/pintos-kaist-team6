@@ -6,8 +6,8 @@ enum vm_type;
 
 struct anon_page
 {
-    enum vm_type sub_type;
     int swap_slot;
+    bool is_stack;
 };
 
 void vm_anon_init(void);

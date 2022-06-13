@@ -290,12 +290,15 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// not_present = f->error_code & PTE_P == 0;
 	// write = f->error_code & PTE_W != 0;
 	// user = f->error_code & PTE_U != 0;
-	if (!not_present)
-		return false;
-	page = spt_find_page(spt, addr);
+
+	// if (!not_present)
+	// 	return false;
+	// page = spt_find_page(spt, addr);
 
 	/* --------------------------------- */
-	return page != NULL ? vm_do_claim_page(page) : false;
+	// return page != NULL ? vm_do_claim_page(page) : false;
+	page = spt_find_page(spt, addr);
+	return vm_do_claim_page(page);
 }
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
