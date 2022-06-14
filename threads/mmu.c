@@ -293,6 +293,7 @@ pml4_get_page(uint64_t *pml4, const void *uaddr)
  * 성공하면 true를 반환하고 실패하면 false를 반환합니다
  * 페이지 테이블에 필요한 추가 메모리를 얻을 수 없는 경우 오류가 발생합니다.
  */
+// pa
 bool pml4_set_page(uint64_t *pml4, void *upage, void *kpage, bool rw)
 {
 	ASSERT(pg_ofs(upage) == 0);
@@ -301,9 +302,10 @@ bool pml4_set_page(uint64_t *pml4, void *upage, void *kpage, bool rw)
 	ASSERT(pml4 != base_pml4);
 
 	uint64_t *pte = pml4e_walk(pml4, (uint64_t)upage, 1);
-
+	// printf("	%#x	\n", pte);
 	if (pte)
 		*pte = vtop(kpage) | PTE_P | (rw ? PTE_W : 0) | PTE_U;
+	// printf("	%#x	\n", pte);
 	return pte != NULL;
 }
 

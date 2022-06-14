@@ -49,15 +49,15 @@ struct page
 
 	/* Your implementation */
 	struct hash_elem h_elem; /* Hash table element. */
-	bool writable;
+	bool writable;			 /* page 읽기 권한 */
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union
 	{
-		struct uninit_page uninit;
-		struct anon_page anon;
-		struct file_page file;
+		struct uninit_page uninit; // 페이지 생성 시 초기값
+		struct anon_page anon;	   // swap-in
+		struct file_page file;	   // swap-in
 #ifdef EFILESYS
 		struct page_cache page_cache;
 #endif
@@ -121,8 +121,7 @@ void spt_remove_page(struct supplemental_page_table *spt, struct page *page);
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user,
 						 bool write, bool not_present);
 
-#define vm_alloc_page(type, upage, writable) \
-	vm_alloc_page_with_initializer((type), (upage), (writable), NULL, NULL)
+#define vm_alloc_page(type, upage, writable) vm_alloc_page_with_initializer((type), (upage), (writable), NULL, NULL)
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
 									bool writable, vm_initializer *init, void *aux);
 void vm_dealloc_page(struct page *page);
