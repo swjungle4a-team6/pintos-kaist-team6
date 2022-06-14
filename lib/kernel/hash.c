@@ -25,7 +25,7 @@ bool hash_init(struct hash *h,
 			   hash_hash_func *hash, hash_less_func *less, void *aux)
 {
 	h->elem_cnt = 0;
-	h->bucket_cnt = 4;
+	h->bucket_cnt = 4; // bucket_cnt는 2의 승수가 되어야 함
 	h->buckets = malloc(sizeof *h->buckets * h->bucket_cnt);
 	h->hash = hash;
 	h->less = less;
@@ -33,7 +33,7 @@ bool hash_init(struct hash *h,
 
 	if (h->buckets != NULL)
 	{
-		hash_clear(h, NULL);
+		hash_clear(h, NULL); // destructor parameter가 NULL이므로, list_init(bucket)만 진행
 		return true;
 	}
 	else
