@@ -105,22 +105,18 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
-	if (spt == NULL || va == NULL)
-		return NULL;
 
-	/* prj3-memory management, yeopto */
-	struct page local_page;
-	struct hash_elem *found_elem;
-	local_page.va = pg_round_down(va);
+	struct hash_elem *h_elem;
+	page->va = pg_round_down(va);
 
-	found_elem = hash_find(&spt->hash, &local_page.h_elem);
+	h_elem = hash_find(&spt->hash, &page->h_elem);
 
-	if (found_elem == NULL)
+	if (h_elem == NULL)
 	{
 		return NULL;
 	}
 
-	page = hash_entry(found_elem, struct page, h_elem);
+	page = hash_entry(h_elem, struct page, h_elem);
 
 	return page;
 }
@@ -280,6 +276,7 @@ vm_do_claim_page(struct page *page)
 static void
 vm_stack_growth(void *addr UNUSED)
 {
+	// vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1);
 }
 
 /* Handle the fault on write_protected page */
@@ -299,8 +296,13 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Your code goes here */
 
 	if (!not_present)
+	{
+		// if (page->uninit.type & VM_MARKER_0)
+		// {
+		// 	vm_stack_growth(pg_round_down(addr));
 		return false;
-	// page = spt_find_page(spt, addr);
+		// }
+	}
 
 	/* --------------------------------- */
 	// return page != NULL ? vm_do_claim_page(page) : false;
@@ -324,39 +326,39 @@ void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
-	struct hash_iterator i;
-	hash_first(&i, &src->hash);
-	while (hash_next(&i))
-	{
-		struct page *parent_page = hash_entry(hash_cur(&i), struct page, h_elem);
-		enum vm_type type = page_get_type(parent_page);
-		void *upage = parent_page->va;
-		bool writable = parent_page->writable;
-		vm_initializer *init = parent_page->uninit.init; //부모의 초기화되지 않은 페이지들 할당하기 위해
-		void *aux = parent_page->uninit.aux;
-		if (parent_page->uninit.type & VM_MARKER_0)
-		{
-			setup_stack(&thread_current()->tf);
-		}
-		else if (parent_page->operations->type == VM_UNINIT)
-		{
-			if (!vm_alloc_page_with_initializer(type, upage, writable, init, aux))
-				return false;
-		}
-		else
-		{
-			if (!vm_alloc_page(type, upage, writable))
-				return false;
-			if (!vm_claim_page(upage))
-				return false;
-		}
+	// struct hash_iterator i;
+	// hash_first(&i, &src->hash);
+	// while (hash_next(&i))
+	// {
+	// 	struct page *parent_page = hash_entry(hash_cur(&i), struct page, h_elem);
+	// 	enum vm_type type = page_get_type(parent_page);
+	// 	void *upage = parent_page->va;
+	// 	bool writable = parent_page->writable;
+	// 	vm_initializer *init = parent_page->uninit.init; //부모의 초기화되지 않은 페이지들 할당하기 위해
+	// 	void *aux = parent_page->uninit.aux;
+	// 	if (parent_page->uninit.type & VM_MARKER_0)
+	// 	{
+	// 		setup_stack(&thread_current()->tf);
+	// 	}
+	// 	else if (parent_page->operations->type == VM_UNINIT)
+	// 	{
+	// 		if (!vm_alloc_page_with_initializer(type, upage, writable, init, aux))
+	// 			return false;
+	// 	}
+	// 	else
+	// 	{
+	// 		if (!vm_alloc_page(type, upage, writable))
+	// 			return false;
+	// 		if (!vm_claim_page(upage))
+	// 			return false;
+	// 	}
 
-		if (parent_page->operations->type != VM_UNINIT)
-		{
-			struct page *child_page = spt_find_page(dst, upage);
-			memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
-		}
-	}
+	// 	if (parent_page->operations->type != VM_UNINIT)
+	// 	{
+	// 		struct page *child_page = spt_find_page(dst, upage);
+	// 		memcpy(child_page->frame->kva, parent_page->frame->kva, PGSIZE);
+	// 	}
+	// }
 	return true;
 }
 void page_destructor(struct hash_elem *h, void *aux UNUSED)
