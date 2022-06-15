@@ -78,7 +78,7 @@ struct segment
 	off_t ofs;
 	uint32_t read_bytes;
 	uint32_t zero_bytes;
-	// struct file *file;
+	struct file *file;
 };
 
 /* The function table for page operations.
