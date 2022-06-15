@@ -33,11 +33,10 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 
 	// enum vm_type type_ = page_get_type(page);
 	struct uninit_page *uninit = &page->uninit;
-
-	memset(uninit, 0, sizeof(struct uninit_page));
-
+	// memset(uninit, 0, sizeof(struct uninit_page));
 	struct anon_page *anon_page = &page->anon;
-	anon_page->swap_slot = -1;
+
+	// anon_page->swap_slot = -1;
 	return true;
 }
 
@@ -60,10 +59,8 @@ static void
 anon_destroy(struct page *page)
 {
 	struct anon_page *anon_page = &page->anon;
+	struct frame *frame = page->frame;
 
-	/* eleshock */
-	struct frame *fr = page->frame;
-	list_remove(&fr->f_elem);
-	// palloc_free_page(fr->kva); // pml4 destroy에서 알아서 해줌
-	free(fr);
+	list_remove(&frame->f_elem);
+	free(frame);
 }
