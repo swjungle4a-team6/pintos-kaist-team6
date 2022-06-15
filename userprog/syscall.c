@@ -152,25 +152,19 @@ void syscall_handler(struct intr_frame *f UNUSED)
 /* 사용할 수 있는 주소인지 확인하는 함수. 사용 불가 시 -1 종료 */
 void check_address(const uint64_t *addr)
 {
-#ifndef VM
-	if (addr == NULL || !(is_user_vaddr(addr)) || !pml4_get_page(&thread_current()->pml4, addr))
+	struct thread *t = thread_current();
+	if (!spt_find_page(&t->spt, addr) || !is_user_vaddr(addr) || addr == NULL)
 	{
-		exit(-1);
+		exit(-1); // terminated
 	}
-#else
-
 	// if (!is_kernel_vaddr(addr))
 	// {
 	// 	spt_find_page(&cur->spt, addr);
 	// }
 	// else
 	// 	exit(-1);
-	if (!spt_find_page(&thread_current()->spt, addr))
-	{
-		exit(-1); // terminated
-	}
-#endif
 }
+
 /* find_file_by_fd()
  * 프로세스의 파일 디스크립터 테이블을 검색하여 파일 객체의 주소를 리턴
  * 파일 디스크립터로 파일 검색 하여 파일 구조체 반환
@@ -249,7 +243,14 @@ void exit(int status)
 bool create(const char *file, unsigned initial_size)
 {
 	check_address(file);
-	return filesys_create(file, initial_size);
+	if (filesys_create(file, initial_size))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 /* 요청받은 파일이름의 파일을 제거 */
@@ -361,6 +362,7 @@ int write(int fd, const void *buffer, unsigned size)
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer);
+	// check_address(buffer + size - 1);
 	int ret = 0;
 	struct thread *cur = thread_current();
 

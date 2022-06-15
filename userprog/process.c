@@ -183,7 +183,7 @@ __do_fork(void *aux)
 
 	/* 부모의 intr_frame을 if_에 복사 */
 	memcpy(&if_, parent_if, sizeof(struct intr_frame));
-	current->running = file_duplicate(parent->running); // 자식 스레드가 부모와 같은 file을 가리키지 않도록 file_duplicate로 복제
+	// current->running = file_duplicate(parent->running); // 자식 스레드가 부모와 같은 file을 가리키지 않도록 file_duplicate로 복제
 	/* if_의 리턴값을 0으로 설정? */
 	if_.R.rax = 0;
 
@@ -210,51 +210,64 @@ __do_fork(void *aux)
 	if (parent->fdIdx == FDCOUNT_LIMIT)
 		goto error;
 
-	/* Project2-extra) multiple fds sharing same file - use associative map
-	(e.g. dict, hashmap) to duplicate these relationships
-	other test-cases like multi-oom don't need this feature */
-	const int MAPLEN = 10;
-	struct MapElem map[10];
+	current->fdTable[0] = parent->fdTable[0]; // stdin
+	current->fdTable[1] = parent->fdTable[1]; // stdout
 
-	/* index for filling map */
-	int dupCount = 0;
-
-	/* fdTable을 순회 */
-	for (int i = 0; i < FDCOUNT_LIMIT; i++)
+	for (int i = 2; i < FDCOUNT_LIMIT; i++)
 	{
-		struct file *file = parent->fdTable[i];
-		if (file == NULL)
+		struct file *f = parent->fdTable[i];
+		if (f == NULL)
+		{
 			continue;
-
-		/* Project2-extra) linear search on key-pair array
-		If 'file' is already duplicated in child, don't duplicate again but share it */
-		bool found = false;
-		for (int j = 0; j < MAPLEN; j++)
-		{
-			if (map[j].key == file)
-			{
-				found = true;
-				current->fdTable[i] = map[j].value;
-				break;
-			}
 		}
-		if (!found)
-		{
-			struct file *new_file;
-			if (file > 2)
-				new_file = file_duplicate(file);
-			else
-				// 1 STDIN, 2 STDOUT
-				new_file = file;
-
-			current->fdTable[i] = new_file;
-			if (dupCount < MAPLEN)
-			{
-				map[dupCount].key = file;
-				map[dupCount++].value = new_file;
-			}
-		}
+		current->fdTable[i] = file_duplicate(f);
 	}
+
+	// /* Project2-extra) multiple fds sharing same file - use associative map
+	// (e.g. dict, hashmap) to duplicate these relationships
+	// other test-cases like multi-oom don't need this feature */
+	// const int MAPLEN = 10;
+	// struct MapElem map[10];
+
+	// /* index for filling map */
+	// int dupCount = 0;
+
+	// /* fdTable을 순회 */
+	// for (int i = 0; i < FDCOUNT_LIMIT; i++)
+	// {
+	// 	struct file *file = parent->fdTable[i];
+	// 	if (file == NULL)
+	// 		continue;
+
+	// 	/* Project2-extra) linear search on key-pair array
+	// 	If 'file' is already duplicated in child, don't duplicate again but share it */
+	// 	bool found = false;
+	// 	for (int j = 0; j < MAPLEN; j++)
+	// 	{
+	// 		if (map[j].key == file)
+	// 		{
+	// 			found = true;
+	// 			current->fdTable[i] = map[j].value;
+	// 			break;
+	// 		}
+	// 	}
+	// 	if (!found)
+	// 	{
+	// 		struct file *new_file;
+	// 		if (file > 2)
+	// 			new_file = file_duplicate(file);
+	// 		else
+	// 			// 1 STDIN, 2 STDOUT
+	// 			new_file = file;
+
+	// 		current->fdTable[i] = new_file;
+	// 		if (dupCount < MAPLEN)
+	// 		{
+	// 			map[dupCount].key = file;
+	// 			map[dupCount++].value = new_file;
+	// 		}
+	// 	}
+	// }
 
 	current->fdIdx = parent->fdIdx;
 	sema_up(&current->fork_sema);
@@ -290,11 +303,10 @@ int process_exec(void *f_name)
 	/* We first kill the current context */
 	//
 	process_cleanup(); // current page의 pml4 초기화
-	char *parse[128];  // It is better not to set an arbitrary limit. You may impose a limit of 128 open files per process, if necessary. But if you want to implement extra requirements, there should be no limitation.
-
 #ifdef VM
 	supplemental_page_table_init(&thread_current()->spt);
 #endif
+	char *parse[128]; // It is better not to set an arbitrary limit. You may impose a limit of 128 open files per process, if necessary. But if you want to implement extra requirements, there should be no limitation.
 
 	char *next_ptr;
 	char *token = strtok_r(file_name, " ", &next_ptr);
@@ -829,7 +841,7 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: VA is available when calling this function. */
 
 	struct segment *aux_data = aux;
-	struct file *f = thread_current()->running;
+	struct file *f = aux_data->file;
 	off_t ofs = aux_data->ofs;
 	uint32_t page_read_bytes = aux_data->read_bytes;
 	uint32_t page_zero_bytes = aux_data->zero_bytes;
@@ -884,6 +896,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		segment->ofs = ofs;
 		segment->read_bytes = page_read_bytes;
 		segment->zero_bytes = page_zero_bytes;
+		segment->file = file;
 
 		void *aux = segment;
 
@@ -895,10 +908,10 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
+		upage += PGSIZE;
 		/* virtual memory 추가 코드*/
 		ofs += page_read_bytes;
 		/* ----------------------- */
-		upage += PGSIZE;
 	}
 	return true;
 }
@@ -909,12 +922,20 @@ bool setup_stack(struct intr_frame *if_)
 	bool success = false;
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
+	/* stack growth */
+	struct thread *t = thread_current();
+	// 4KB = 4096 = 0x1000
+	// user prog에서 스택 포인터의 현재 값을 얻을 수 있어야 함.
+	// ...
+	// user mode에서 kernel mode로 처음 전환할 때 rsp를 struct thread에 저장하는 방법이 필요
+	// struct thread에 rsp라는 새로운 멤버 추가!
+	/* ------------ */
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-	vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, stack_bottom, 1, NULL, NULL);
-	success = vm_claim_page(stack_bottom);
+	vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true); // Create uninit page for stack; will become anon page
+	success = vm_claim_page(stack_bottom);					  // find page corresponding to user vaddr 'stack_bottom' and get frame mapped
 
 	if (success)
 	{
