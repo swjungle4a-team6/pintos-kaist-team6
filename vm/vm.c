@@ -124,7 +124,7 @@ bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
 	/* TODO: Fill this function. */
-	page->va = pg_round_down(page->va);
+	// page->va = pg_round_down(page->va);
 	if (!hash_insert(&spt->hash, &page->h_elem)) // hash_insert는 삽입 성공 시 0을 반환 (헷갈리면 안됨)
 		return true;
 
@@ -262,7 +262,10 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
+	// if(page_get_type())
+
 	if (pml4_get_page(curr->pml4, page->va) == NULL && pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
+
 		return swap_in(page, frame->kva);
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
@@ -274,9 +277,13 @@ static void
 vm_stack_growth(void *addr UNUSED)
 {
 	// vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, 1, NULL, NULL);
-	vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1);
+	// 여기서 1mb 확인합시다
+	addr = pg_round_down(addr);
+	if (USER_STACK - 0x100000 <= addr)
+	{
+		vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1);
+	}
 }
-
 /* Handle the fault on write_protected page */
 static bool
 vm_handle_wp(struct page *page UNUSED)
@@ -288,33 +295,30 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	// addr : page_fault가 발생한 가상주소?
-	struct thread *t = thread_current();
-	struct supplemental_page_table *spt UNUSED = &t->spt;
+	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-
-	addr = pg_round_down(addr);
-	if (is_kernel_vaddr(addr))
-	{
-		return false;
-	}
-
-	// void *rsp = user ? f->rsp : t->rsp;
+	void *rsp = (void *)(user ? f->rsp : thread_current()->rsp);
 
 	if (!not_present)
 	{
 		return false;
 	}
 
-	// if (not_present)
-	// {
-	// 	if (rsp <= USER_STACK && is_user_vaddr(addr))
-	// 		vm_stack_growth(addr);
-	// }
+	/* stack_growth */
+	if (not_present)
+	{
+		// USER_STACK - 1mb <= addr <= USER_STACK
+		// case 1 : rsp - addr == 0x8
+		// case 2 :  (USER_STACK - 0x100000 <= addr)  (USER_STACK - 0x100000 <= addr)
+		if ((addr < USER_STACK && addr >= rsp) || rsp - addr == 0x8)
+		{
+			vm_stack_growth(addr);
+		}
+	}
 
 	/* --------------------------------- */
-	// return page != NULL ? vm_do_claim_page(page) : false;
 	page = spt_find_page(spt, addr);
 	return page ? vm_do_claim_page(page) : false;
 }
