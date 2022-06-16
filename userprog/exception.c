@@ -149,15 +149,16 @@ page_fault(struct intr_frame *f)
 #endif
 
 	/* Count page faults. */
+	exit(-1);
 	page_fault_cnt++;
 
 	/* If the fault is true fault, show info and exit. */
-	printf("Page fault at %p: %s error %s page in %s context.\n",
-		   fault_addr,
-		   not_present ? "not present" : "rights violation",
-		   write ? "writing" : "reading",
-		   user ? "user" : "kernel");
+	// printf("Page fault at %p: %s error %s page in %s context.\n",
+	// 	   fault_addr,
+	// 	   not_present ? "not present" : "rights violation",
+	// 	   write ? "writing" : "reading",
+	// 	   user ? "user" : "kernel");
 
 	// kill(f);
-	exit(-1); // 에러 메시지 출력을 방지하기 위해 exit(-1) 을 호출하도록 수정
+	// 에러 메시지 출력을 방지하기 위해 exit(-1) 을 호출하도록 수정
 }
