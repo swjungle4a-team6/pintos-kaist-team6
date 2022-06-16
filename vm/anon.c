@@ -61,6 +61,6 @@ anon_destroy(struct page *page)
 	struct anon_page *anon_page = &page->anon;
 	struct frame *frame = page->frame;
 
-	list_remove(&frame->f_elem);
+	// list_remove(&frame->f_elem);
 	free(frame);
 }
