@@ -300,7 +300,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 	void *rsp = (void *)(user ? f->rsp : thread_current()->rsp);
-
+	// printf("	rsp: %p\n", rsp);
 	if (!not_present)
 	{
 		return false;

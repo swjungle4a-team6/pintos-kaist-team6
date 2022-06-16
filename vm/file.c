@@ -31,7 +31,6 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 
 	/* project3 */
 	struct uninit_page *uninit = &page->uninit;
-
 	memset(uninit, 0, sizeof(struct uninit_page));
 	/* -------------------------------------- */
 	struct file_page *file_page = &page->file;
@@ -65,6 +64,11 @@ file_backed_destroy(struct page *page)
  * length : 맵핑의 길이
  * offset : file mapping을 위한 file offset
  */
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+}
+
 void *
 do_mmap(void *addr, size_t length, int writable,
 		struct file *file, off_t offset)

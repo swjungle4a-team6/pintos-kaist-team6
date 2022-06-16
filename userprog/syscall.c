@@ -79,7 +79,7 @@ void syscall_init(void)
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
-	// thread_current()->rsp = f->rsp; // by. 박선생
+	thread_current()->rsp = f->rsp; // by. 박선생
 
 	// TODO: Your implementation goes here.
 	// printf("syscall! , %d\n",f->R.rax);
