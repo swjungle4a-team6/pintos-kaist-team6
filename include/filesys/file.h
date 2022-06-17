@@ -7,6 +7,7 @@ struct inode;
 
 struct file
 {
+    int ref_cnt;
     struct inode *inode; /* File's inode. */
     off_t pos;           /* Current position. */
     bool deny_write;     /* Has file_deny_write() been called? */

@@ -113,7 +113,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = filesize(f->R.rdi);
 		break;
 	case SYS_READ:
-
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
@@ -539,14 +538,9 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	// fd 0, 1 or fd 0, 2 : I/O
 	struct file *cur_file = find_file_by_fd(fd);
 
-	if (length <= NULL || offset > PGSIZE || addr == NULL || addr != pg_round_down(addr) || !is_user_vaddr(addr))
+	if ((int)length <= NULL || addr == NULL || addr != pg_round_down(addr) || !is_user_vaddr(addr) || fd == 0 || fd == 1 || !pg_ofs(offset) || cur_file)
 	{
-		return false;
-	}
-
-	if (fd == 0 || fd == 1 || cur_file == NULL)
-	{
-		exit(-1);
+		return NULL;
 	}
 
 	do_mmap(addr, length, writable, cur_file, offset);
@@ -554,5 +548,10 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 
 void *munmap(void *addr)
 {
+	if (!spt_find_page(&thread_current()->spt, addr))
+	{
+		return false;
+	}
+
 	do_munmap(addr);
 }
