@@ -34,11 +34,12 @@ unsigned tell(int fd);
 void close(int fd);
 tid_t fork(const char *thread_name, struct intr_frame *f);
 int exec(char *file_name);
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void *munmap(void *addr);
 int dup2(int oldfd, int newfd);
 
 /* syscall helper functions */
 void check_address(const uint64_t *addr);
-static struct file *find_file_by_fd(int fd);
 int add_file_to_fdt(struct file *file);
 void remove_file_from_fdt(int fd);
 
@@ -79,10 +80,8 @@ void syscall_init(void)
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f UNUSED)
 {
-	thread_current()->rsp = f->rsp; // by. 박선생
+	thread_current()->rsp = f->rsp;
 
-	// TODO: Your implementation goes here.
-	// printf("syscall! , %d\n",f->R.rax);
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -95,8 +94,6 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = fork(f->R.rdi, f);
 		break;
 	case SYS_EXEC:
-		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
-		/* ------------------------------------------------------ */
 		if (exec(f->R.rdi) == -1)
 			exit(-1);
 		break;
@@ -104,31 +101,22 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		f->R.rax = process_wait(f->R.rdi);
 		break;
 	case SYS_CREATE:
-		// rdi : argc,	rsi : argv
 		f->R.rax = create(f->R.rdi, f->R.rsi);
 		break;
 	case SYS_REMOVE:
 		f->R.rax = remove(f->R.rdi);
 		break;
 	case SYS_OPEN:
-		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
-		// check_valid_buffer
-		/* ------------------------------------------------------ */
 		f->R.rax = open(f->R.rdi);
 		break;
 	case SYS_FILESIZE:
 		f->R.rax = filesize(f->R.rdi);
 		break;
 	case SYS_READ:
-		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
-		// check_valid_buffer
-		/* ------------------------------------------------------ */
+
 		f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_WRITE:
-		/* buffer 사용 유무를 고려하여 유효성 검사를 하도록 코드 추가 */
-		// check_valid_buffer
-		/* ------------------------------------------------------ */
 		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 		break;
 	case SYS_SEEK:
@@ -139,6 +127,14 @@ void syscall_handler(struct intr_frame *f UNUSED)
 		break;
 	case SYS_CLOSE:
 		close(f->R.rdi);
+		break;
+	case SYS_MMAP:
+		// exit(-1);
+		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+		break;
+	case SYS_MUNMAP:
+		f->R.rax = munmap(f->R.rdi);
+		// exit(-1);
 		break;
 	case SYS_DUP2:
 		f->R.rax = dup2(f->R.rdi, f->R.rsi);
@@ -164,7 +160,7 @@ void check_address(const uint64_t *addr)
  * 프로세스의 파일 디스크립터 테이블을 검색하여 파일 객체의 주소를 리턴
  * 파일 디스크립터로 파일 검색 하여 파일 구조체 반환
  */
-static struct file *find_file_by_fd(int fd)
+struct file *find_file_by_fd(int fd)
 {
 	struct thread *cur = thread_current();
 
@@ -537,3 +533,26 @@ int dup2(int oldfd, int newfd)
 // 	/* 위 내용을 buffer부터 buffer + size까지의 주소에 포함되는 vm_entry들에 대해 적용 */
 // 	/* ------------------------- */
 // }
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+	// fd 0, 1 or fd 0, 2 : I/O
+	struct file *cur_file = find_file_by_fd(fd);
+
+	if (length <= NULL || offset > PGSIZE || addr == NULL || addr != pg_round_down(addr) || !is_user_vaddr(addr))
+	{
+		return false;
+	}
+
+	if (fd == 0 || fd == 1 || cur_file == NULL)
+	{
+		exit(-1);
+	}
+
+	do_mmap(addr, length, writable, cur_file, offset);
+}
+
+void *munmap(void *addr)
+{
+	do_munmap(addr);
+}

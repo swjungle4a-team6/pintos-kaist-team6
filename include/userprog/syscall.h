@@ -9,5 +9,6 @@ void syscall_init(void);
  * Read, Write 시 파일에 대한 동시접근이 일어날 수 있으므로 Lock 사용
  */
 struct lock file_rw_lock;
+struct file *find_file_by_fd(int fd);
 
 #endif /* userprog/syscall.h */

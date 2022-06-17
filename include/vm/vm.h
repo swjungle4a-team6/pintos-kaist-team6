@@ -20,7 +20,7 @@ enum vm_type
 	/* Auxillary bit flag marker for store information. You can add more
 	 * markers, until the value is fit in the int. */
 	VM_MARKER_0 = (1 << 3), // stack
-	VM_MARKER_1 = (1 << 4), // segment
+	VM_MARKER_1 = (1 << 4), //
 	/* DO NOT EXCEED THIS VALUE. */
 	VM_MARKER_END = (1 << 31),
 };
@@ -135,6 +135,6 @@ page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
 static void vm_stack_growth(void *addr UNUSED);
 void page_destructor(struct hash_elem *h, void *aux UNUSED);
-// void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 
 #endif /* VM_VM_H */
