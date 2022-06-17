@@ -10,7 +10,7 @@
 
 struct list frame_table;
 struct list_elem *clock_pointer;
-
+static void vm_stack_growth(void *rsp, void *addr UNUSED);
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void)
@@ -271,11 +271,18 @@ vm_do_claim_page(struct page *page)
 
 /* Growing the stack. */
 static void
-vm_stack_growth(void *addr UNUSED)
+vm_stack_growth(void *rsp, void *addr UNUSED)
 {
-	// vm_alloc_page_with_initializer(VM_ANON | VM_MARKER_0, addr, 1, NULL, NULL);
-	vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1);
+	//printf("	vm_stack_growth 들어옴 \n");
+	if (addr >= (USER_STACK - 0x100000 + PGSIZE))
+	{
+		addr = pg_round_down(addr);
+		//printf("	addr = %p\n", addr);
+		vm_alloc_page(VM_ANON | VM_MARKER_0, addr, 1);
+	}
+	
 }
+
 
 /* Handle the fault on write_protected page */
 static bool
@@ -287,6 +294,7 @@ vm_handle_wp(struct page *page UNUSED)
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
+	//printf("	vm_try_handle_fault 들어옴\n");
 	// addr : page_fault가 발생한 가상주소?
 	struct thread *t = thread_current();
 	struct supplemental_page_table *spt UNUSED = &t->spt;
@@ -294,28 +302,24 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 
-	addr = pg_round_down(addr);
-	if (is_kernel_vaddr(addr))
-	{
-		return false;
-	}
-
-	// void *rsp = user ? f->rsp : t->rsp;
-
 	if (!not_present)
 	{
 		return false;
 	}
 
-	// if (not_present)
-	// {
-	// 	if (rsp <= USER_STACK && is_user_vaddr(addr))
-	// 		vm_stack_growth(addr);
+	void *rsp = (void*)(user ? f->rsp : thread_current()->rsp);
+	//void *rsp = f->rsp;
+	//printf("	rsp = %p\n", rsp);
+	if ((rsp <= addr && addr < USER_STACK) || rsp - addr == 0x8)
+	{
+		vm_stack_growth(rsp, addr);
+	}
+	// else{
+	// 	printf("	failed to grow stack, rsp = %p, addr = %p\n", rsp, addr);
 	// }
-
-	/* --------------------------------- */
-	// return page != NULL ? vm_do_claim_page(page) : false;
+	
 	page = spt_find_page(spt, addr);
+	//printf("	page = %p\n", page);
 	return page ? vm_do_claim_page(page) : false;
 }
 /* Free the page.
@@ -352,6 +356,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 			memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
 			if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, p->uninit.init, aux))
 			{
+				free(aux);
 				return false;
 			}
 		}

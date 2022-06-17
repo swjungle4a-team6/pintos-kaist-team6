@@ -133,7 +133,7 @@ bool page_less(const struct hash_elem *a_,
 unsigned
 page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
-static void vm_stack_growth(void *addr UNUSED);
+static void vm_stack_growth(void *rsp, void *addr UNUSED);
 void page_destructor(struct hash_elem *h, void *aux UNUSED);
 
 #endif /* VM_VM_H */

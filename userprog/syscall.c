@@ -82,6 +82,7 @@ void syscall_handler(struct intr_frame *f UNUSED)
 {
 	// TODO: Your implementation goes here.
 	// printf("syscall! , %d\n",f->R.rax);
+	thread_current()->rsp = (void*)f->rsp;
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -152,17 +153,10 @@ void syscall_handler(struct intr_frame *f UNUSED)
 /* 사용할 수 있는 주소인지 확인하는 함수. 사용 불가 시 -1 종료 */
 void check_address(const uint64_t *addr)
 {
-	struct thread *t = thread_current();
-	if (!spt_find_page(&t->spt, addr) || !is_user_vaddr(addr) || addr == NULL)
+	if (!is_user_vaddr(addr) || addr == NULL)
 	{
-		exit(-1); // terminated
+		exit(-1);
 	}
-	// if (!is_kernel_vaddr(addr))
-	// {
-	// 	spt_find_page(&cur->spt, addr);
-	// }
-	// else
-	// 	exit(-1);
 }
 
 /* find_file_by_fd()
@@ -314,6 +308,10 @@ int exec(char *file_name)
 int write(int fd, const void *buffer, unsigned size)
 {
 	check_address(buffer);
+	struct page *page = spt_find_page(&thread_current()->spt, buffer);
+	if (page != NULL && !page->writable)
+		exit(-1);
+		
 	int ret = 0; // 기록한 데이터의 바이트 수, 실패시 -1
 
 	struct file *fileobj = find_file_by_fd(fd); // 실패시 NULL 반환
@@ -362,6 +360,9 @@ int write(int fd, const void *buffer, unsigned size)
 int read(int fd, void *buffer, unsigned size)
 {
 	check_address(buffer);
+	struct page *page = spt_find_page(&thread_current()->spt, buffer);
+	if (page != NULL && !page->writable)
+		exit(-1);
 	// check_address(buffer + size - 1);
 	int ret = 0;
 	struct thread *cur = thread_current();

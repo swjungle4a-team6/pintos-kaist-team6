@@ -936,10 +936,11 @@ bool setup_stack(struct intr_frame *if_)
 	/* TODO: Your code goes here */
 	vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true); // Create uninit page for stack; will become anon page
 	success = vm_claim_page(stack_bottom);					  // find page corresponding to user vaddr 'stack_bottom' and get frame mapped
-
+	
 	if (success)
 	{
 		if_->rsp = USER_STACK;
+		//printf("%p\n", if_->rsp);
 	}
 
 	return success;

@@ -121,6 +121,7 @@ kill(struct intr_frame *f)
 static void
 page_fault(struct intr_frame *f)
 {
+	//printf("	page_fault 들어옴\n");
 	bool not_present; /* True: not-present page, false: writing r/o page. */
 	bool write;		  /* True: access was write, false: access was read. */
 	bool user;		  /* True: access by user, false: access by kernel. */
@@ -132,6 +133,7 @@ page_fault(struct intr_frame *f)
 	   that caused the fault (that's f->rip). */
 
 	fault_addr = (void *)rcr2();
+	//printf("	fault_addr=%p\n", fault_addr);
 
 	/* Turn interrupts back on (they were only off so that we could
 	   be assured of reading CR2 before it changed). */
@@ -145,19 +147,25 @@ page_fault(struct intr_frame *f)
 #ifdef VM
 	/* For project 3 and later. */
 	if (vm_try_handle_fault(f, fault_addr, user, write, not_present))
-		return;
+		{	
+			return;
+		}
+	// else{
+	// 	printf("	vm_try_handle_fault(%p\n)", fault_addr);
+	// }
 #endif
 
+	exit(-1);
 	/* Count page faults. */
 	page_fault_cnt++;
 
 	/* If the fault is true fault, show info and exit. */
-	printf("Page fault at %p: %s error %s page in %s context.\n",
-		   fault_addr,
-		   not_present ? "not present" : "rights violation",
-		   write ? "writing" : "reading",
-		   user ? "user" : "kernel");
+	// printf("Page fault at %p: %s error %s page in %s context.\n",
+	// 	   fault_addr,
+	// 	   not_present ? "not present" : "rights violation",
+	// 	   write ? "writing" : "reading",
+	// 	   user ? "user" : "kernel");
 
 	// kill(f);
-	exit(-1); // 에러 메시지 출력을 방지하기 위해 exit(-1) 을 호출하도록 수정
+	 // 에러 메시지 출력을 방지하기 위해 exit(-1) 을 호출하도록 수정
 }
