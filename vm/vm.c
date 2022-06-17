@@ -56,7 +56,6 @@ static struct frame *vm_evict_frame(void);
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
-
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
@@ -136,6 +135,7 @@ bool spt_delete_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
 	/* TODO: Fill this function. */
+	//printf("	entered spt_delete_page\n");
 	hash_delete(&spt->hash, &page->h_elem);
 	vm_dealloc_page(page);
 	return true;

@@ -36,6 +36,7 @@ void close(int fd);
 tid_t fork(const char *thread_name, struct intr_frame *f);
 int exec(char *file_name);
 int dup2(int oldfd, int newfd);
+void* mmap(void* addr, size_t length, int writable, int fd, off_t ofs);
 
 /* syscall helper functions */
 void check_address(const uint64_t *addr);
@@ -143,6 +144,13 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_DUP2:
 		f->R.rax = dup2(f->R.rdi, f->R.rsi);
 		break;
+	case SYS_MMAP:
+		f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+		break;
+	case SYS_MUNMAP:
+		do_munmap(f->R.rdi);
+		break;
+
 	default:
 		exit(-1);
 		break;
@@ -528,3 +536,15 @@ int dup2(int oldfd, int newfd)
 // 	/* 위 내용을 buffer부터 buffer + size까지의 주소에 포함되는 vm_entry들에 대해 적용 */
 // 	/* ------------------------- */
 // }
+
+void* mmap(void* addr, size_t length, int writable, int fd, off_t ofs)
+{
+	struct file *file = find_file_by_fd(fd);
+	//check_address(addr);
+
+	if(pg_ofs(addr) || addr == NULL || is_kernel_vaddr(addr) || fd == 0 || fd == 1 ||
+		!file || (long)length <= NULL || pg_ofs(ofs)) {
+		return NULL;
+	}
+	return do_mmap(addr, length, writable, file, ofs);
+}

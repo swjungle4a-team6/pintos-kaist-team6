@@ -33,7 +33,7 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 
 	// enum vm_type type_ = page_get_type(page);
 	struct uninit_page *uninit = &page->uninit;
-	// memset(uninit, 0, sizeof(struct uninit_page));
+	memset(uninit, 0, sizeof(struct uninit_page));
 	struct anon_page *anon_page = &page->anon;
 
 	// anon_page->swap_slot = -1;

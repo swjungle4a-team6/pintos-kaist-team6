@@ -848,7 +848,7 @@ lazy_load_segment(struct page *page, void *aux)
 
 	file_seek(f, ofs);
 
-	if (file_read(f, page->frame->kva, page_read_bytes) != (int)page_read_bytes)
+	if (file_read(f, page->frame->kva, page_read_bytes) != (int)page_read_bytes) //segment 특
 	{
 		return false;
 	}

@@ -7,6 +7,10 @@ struct page;
 enum vm_type;
 
 struct file_page {
+	int page_count; //mmap시 읽어야 할 length 저장할 용도
+	off_t page_ofs;
+	struct file *file_addr;
+	size_t written_bytes;
 };
 
 void vm_file_init (void);
