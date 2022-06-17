@@ -79,35 +79,42 @@ void *
 do_mmap(void *addr, size_t length, int writable,
 		struct file *file, off_t offset)
 {
-	// if (addr == NULL || length == NULL)
+	// file_read_at?
+	file = file_reopen(file);
+	file->ref_cnt++;
+
+	// while (read_bytes > 0 || zero_bytes > 0)
 	// {
-	// 	return false;
+	// 	// size_t page_read_bytes = ;
+	// 	// size_t page_zero_bytes = ;
+
+	// 	struct segment *segment = malloc(sizeof(struct segment));
+	// 	// segment->ofs = offset;
+	// 	// segment->read_bytes = page_read_bytes;
+	// 	// segment->zero_bytes = page_zero_bytes;
+	// 	// segment->file = file;
+
+	// 	/* --------------------------------------------------------------- */
+	// 	if (!vm_alloc_page_with_initializer(VM_FILE, addr,
+	// 										writable, NULL, segment))
+	// 	{
+	// 		free(segment);
+	// 		return false;
+	// 	}
+
+	// 	// read_bytes -= page_read_bytes;
+	// 	// zero_bytes -= page_zero_bytes;
+	// 	// addr += PGSIZE;
+	// 	// offset += page_read_bytes;
 	// }
-
-	// if (!vm_alloc_page_with_initializer(VM_FILE, addr, true, lazy_load_segment, NULL))
-	// {
-	// 	return false;
-	// }
-
-	// struct page *p = spt_find_page(&thread_current()->spt, addr);
-
-	// if (p == NULL)
-	// {
-	// 	return false;
-	// }
-
-	// p->file.file = file;
-	// p->file.length = length;
-	// p->file.offset = offset;
-	// p->file.writable = writable;
 }
 
 /* Do the munmap */
 void do_munmap(void *addr)
 {
 	struct thread *t = thread_current();
-	struct page *p = spt_find_page(&t->spt, addr);
-
-	// munmap() 이전에 close()가 호출되어도 file mapping은 여전히 유효
-	// file_reopen(NULL);
+	struct page *p;
+	while (p = spt_find_page(&t->spt, addr))
+	{
+	}
 }
