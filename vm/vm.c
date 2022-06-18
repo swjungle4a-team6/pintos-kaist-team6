@@ -69,6 +69,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		 * TODO: should modify the field after calling the uninit_new. */
 
 		page = (struct page *)malloc(sizeof(struct page));
+		if (!page) return false;
 		bool (*initializer)(struct page *, enum vm_type, void *);
 
 		switch (VM_TYPE(type))

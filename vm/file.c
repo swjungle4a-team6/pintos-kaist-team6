@@ -90,7 +90,7 @@ do_mmap(void *addr, size_t length, int writable,
 	int page_count = (length % PGSIZE ? (int)(length/PGSIZE) + 1 : (int)(length/PGSIZE));
 
 	//조건 통과
-	size_t zero_bytes = 0;
+	long zero_bytes = 0;
 	while (length > 0 || zero_bytes > 0)
 	{
 		// printf("	do_mmap들어옴!!\n");
