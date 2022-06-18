@@ -18,7 +18,7 @@ test_main (void)
   /* Map file. */
   CHECK ((handle = open ("sample.txt")) > 1, "open \"sample.txt\"");
   CHECK ((map = mmap (actual, 4096, 0, handle, 0)) != MAP_FAILED, "mmap \"sample.txt\"");
-
+  
   /* Close file and delete it. */
   close (handle);
   CHECK (remove ("sample.txt"), "remove \"sample.txt\"");

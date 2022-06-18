@@ -352,9 +352,21 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 		// 이렇게 해도 되나 ? -> ok: current thread == dst (child)
 		if (p->operations->type == VM_UNINIT)
 		{ // 초기 페이지
-			struct segment_aux *aux = malloc(sizeof(struct segment));
+			struct segment *aux = malloc(sizeof(struct segment));
 			memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
 			if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, p->uninit.init, aux))
+			{
+				free(aux);
+				return false;
+			}
+		}
+		else if (p->operations->type == VM_FILE) //이미 file-backed로 초기화된 페이지들
+		{
+			//printf("copying spt!!\n");
+			struct segment *aux = (struct segment *)malloc(sizeof(struct segment));
+			memcpy(aux, p->file.file_aux, sizeof(struct segment));
+			//memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
+			if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, lazy_load_file, aux))
 			{
 				free(aux);
 				return false;

@@ -274,7 +274,6 @@ int open(const char *file)
 		return -1;
 	// 서로 만든  파일을 현재 스레드의 파일디스크립터 테이블에 추가하고 해당 fd를 리턴한다.
 	int fd = add_file_to_fdt(fileobj);
-
 	/* 파일 디스크립터가 가득찬 경우 */
 	if (fd == -1)
 		file_close(fileobj);
@@ -315,10 +314,10 @@ int exec(char *file_name)
  */
 int write(int fd, const void *buffer, unsigned size)
 {
-	check_address(buffer);
-	struct page *page = spt_find_page(&thread_current()->spt, buffer);
-	if (page != NULL && !page->writable)
-		exit(-1);
+	//check_address(buffer);
+	// struct page *page = spt_find_page(&thread_current()->spt, buffer);
+	// if (page != NULL && !page->writable)
+	// 	exit(-1);
 		
 	int ret = 0; // 기록한 데이터의 바이트 수, 실패시 -1
 

@@ -80,6 +80,7 @@ struct segment
 	uint32_t zero_bytes;
 	struct file *file;
 	int page_count;
+	size_t written_bytes; //struct file_page를 spt_copy해올때 필요
 };
 
 /* The function table for page operations.
