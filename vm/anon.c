@@ -35,7 +35,7 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 	struct uninit_page *uninit = &page->uninit;
 	memset(uninit, 0, sizeof(struct uninit_page));
 	struct anon_page *anon_page = &page->anon;
-
+	
 	// anon_page->swap_slot = -1;
 	return true;
 }
@@ -45,6 +45,7 @@ static bool
 anon_swap_in(struct page *page, void *kva)
 {
 	struct anon_page *anon_page = &page->anon;
+
 }
 
 /* Swap out the page by writing contents to the swap disk. */
@@ -52,6 +53,7 @@ static bool
 anon_swap_out(struct page *page)
 {
 	struct anon_page *anon_page = &page->anon;
+
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */

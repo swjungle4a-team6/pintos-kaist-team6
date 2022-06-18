@@ -374,7 +374,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 			}
 		}
 		else
-		{ // lazy load 된 페이지
+		{
 			if (p->uninit.type & VM_MARKER_0)
 			{ // 스택
 				if (!setup_stack(&thread_current()->tf))
