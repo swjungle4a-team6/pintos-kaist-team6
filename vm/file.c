@@ -49,6 +49,15 @@ static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
 	struct file_page *file_page UNUSED = &page->file;
+	// struct segment *file_aux = file_page->file_aux;
+
+	//file_read(file_aux->file, kva, file_aux->written_bytes );
+	//pml4_clear_page(t->pml4, page->va);
+	//palloc_get_page(PAL_USER); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
+	//list_push_back(&page->frame->f_elem);
+	
+	//return true;
+
 }
 
 /* Swap out the page by writeback contents to the file. */
@@ -56,7 +65,27 @@ static bool
 file_backed_swap_out(struct page *page)
 {
 	struct file_page *file_page UNUSED = &page->file;
+	// //printf("	do_munmap 들어옴\n");
+	// struct thread *t = thread_current();
+
+	// struct segment *aux = page->file.file_aux;
+
+	// if (pml4_is_dirty(t->pml4, page->va))
+	// {
+	// 	file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
+	// 	pml4_set_dirty(t->pml4,page->va, 0);
+	// }
+	// pml4_clear_page(t->pml4, page->va);
+	// palloc_free_page(page->frame->kva); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
+	// list_remove(&page->frame->f_elem);
+	
+	//return true;
+		
 }
+	// file_close(fp->file_addr);
+
+
+
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
 static void
@@ -69,6 +98,10 @@ file_backed_destroy(struct page *page)
 			free(aux);
 		pml4_set_dirty(t->pml4, page->va, 0);
 	}
+	//struct frame *frame = page->frame;
+	// list_remove(&page->frame->f_elem);
+	// free(page->frame);
+	//free(frame->kva);
 }
 
 /* Do the mmap */
@@ -154,12 +187,10 @@ lazy_load_file(struct page *page, void *aux)
 	}
 	//uninit일 때와 달라지는 점은 이거 하나
 	page->file.file_aux->written_bytes = written_bytes; 
-	//printf("written_bytes = %d\n", written_bytes);
 	
 	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
-
 	free(aux_data); 
-	//printf("	lazy_load_file 완료\n");
+
 	return true;
 }
 
@@ -178,26 +209,20 @@ void do_munmap(void *addr)
 
 	while (unmap_count < aux->page_count)
 	{
-		// printf("	page_count = %d\n", aux->page_count);
 		if (pml4_is_dirty(t->pml4, page->va))
-		{
-			//printf("	pml4_was_dirty\n");
+		{	
 			file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
 			pml4_set_dirty(t->pml4,page->va, 0);
-			//printf("	wrote into file\n");
 		}
-
+		//pml4_clear_page(t->pml4, page->va);
 		spt_delete_page(&t->spt, page);
 
 		unmap_count += 1;
-		//addr += PGSIZE;
 		page = spt_find_page(&t->spt, addr + PGSIZE);
 			if(!page) return;
-
 		//free(aux); //file_backed_destroy에서 해줌
 		aux = page->file.file_aux;
-		// printf("	do_munmap하고 unmap_count = %d\n", unmap_count);
- 
+		
 	}
 	// file_close(fp->file_addr);
 

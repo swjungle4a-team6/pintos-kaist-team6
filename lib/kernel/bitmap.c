@@ -19,7 +19,7 @@
 typedef unsigned long elem_type;
 
 /* Number of bits in an element. */
-#define ELEM_BITS (sizeof(elem_type) * CHAR_BIT)
+#define ELEM_BITS (sizeof(elem_type) * CHAR_BIT) //256(2^8) bytes = 8bits
 
 /* From the outside, a bitmap is an array of bits.  From the
    inside, it's an array of elem_type (defined above) that

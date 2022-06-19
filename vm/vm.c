@@ -24,7 +24,7 @@ void vm_init(void)
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
-	clock_pointer = list_begin(&frame_table);
+	clock_pointer = list_head(&frame_table);
 	/* -------------------------- */
 }
 
@@ -149,51 +149,66 @@ void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 }
 
 /* Get the struct frame, that will be evicted. */
-static struct frame *
-vm_get_victim(void)
+static struct frame *vm_get_victim(void)
 {
 	struct frame *victim = NULL;
-	/* TODO: The policy for eviction is up to you. */
-	struct list_elem *tmp_elem = clock_pointer;
-	uint64_t *pml4 = &thread_current()->pml4;
-	for (tmp_elem; tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
+	
+	if (!list_empty(&frame_table))
 	{
-		victim = list_entry(tmp_elem, struct frame, f_elem);
-		if (pml4_is_accessed(pml4, victim->page->va))
-		{
-			pml4_set_accessed(pml4, victim->page->va, 0);
-		}
-		else
-		{
-			clock_pointer = list_next(tmp_elem);
-			return victim;
-		}
-	}
+		
+		victim = list_entry(list_pop_front(&frame_table), struct frame, f_elem);
 
-	for (tmp_elem = list_begin(&frame_table); tmp_elem != clock_pointer; tmp_elem = list_next(tmp_elem))
-	{
-		victim = list_entry(tmp_elem, struct frame, f_elem);
-		if (pml4_is_accessed(pml4, victim->page->va))
-		{
-			pml4_set_accessed(pml4, victim->page->va, 0);
-		}
-		else
-		{
-			clock_pointer = list_next(tmp_elem);
-			return victim;
-		}
 	}
+	return victim;
 }
+
+
+
+// static struct frame *
+// vm_get_victim(void)
+// {
+// 	struct frame *victim = NULL;
+// 	/* TODO: The policy for eviction is up to you. */
+// 	struct list_elem *tmp_elem = clock_pointer;
+// 	uint64_t *pml4 = &thread_current()->pml4;
+// 	for (tmp_elem; tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
+// 	{
+// 		victim = list_entry(tmp_elem, struct frame, f_elem);
+// 		if (pml4_is_accessed(pml4, victim->page->va))
+// 		{
+// 			pml4_set_accessed(pml4, victim->page->va, 0);
+// 		}
+// 		else
+// 		{
+// 			clock_pointer = list_next(tmp_elem);
+// 			return victim;
+// 		}
+// 	}
+
+// 	for (tmp_elem = list_begin(&frame_table); tmp_elem != clock_pointer; tmp_elem = list_next(tmp_elem))
+// 	{
+// 		victim = list_entry(tmp_elem, struct frame, f_elem);
+// 		if (pml4_is_accessed(pml4, victim->page->va))
+// 		{
+// 			pml4_set_accessed(pml4, victim->page->va, 0);
+// 		}
+// 		else
+// 		{
+// 			clock_pointer = list_next(tmp_elem);
+// 			return victim;
+// 		}
+// 	}
+// }
 
 /* Evict one page and return the corresponding frame.
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame(void)
 {
-	struct frame *victim UNUSED = vm_get_victim();
+	struct frame *victim = vm_get_victim();
 	/* TODO: swap out the victim and return the evicted frame. */
-	// swap_out(victim->page);
-	/* ------------------------------------------------------- */
+	if (!victim) return NULL;
+	swap_out(victim->page);
 	return victim;
 }
 
@@ -211,30 +226,49 @@ vm_evict_frame(void)
 static struct frame * // 여기서 얻은 frame을 담을 frame page table을 구현해줘야할 것 같은데?
 vm_get_frame(void)
 {
+	/* TODO: Fill this function. */
+	struct frame *frame = NULL;
+	void *temp = palloc_get_page(PAL_USER);
 
-	struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
-
-	if (frame != NULL)
+	if (temp == NULL)
 	{
-		frame->kva = palloc_get_page(PAL_USER);
-		frame->page = NULL;
-
-		if (frame->kva != NULL)
-		{
-
-			list_push_back(&frame_table, &frame->f_elem);
-		}
+		frame = vm_evict_frame();
+		if (!frame) return NULL;
+		temp = palloc_get_page(PAL_USER);
 	}
 	else
 	{
-		PANIC("todo");
+		frame = (struct frame *)malloc(sizeof(struct frame));
 	}
+	frame->kva = temp;
+	frame->page = NULL;
+	list_push_back(&frame_table, &frame->f_elem);
 
-	/* TODO: Fill this function. */
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
 	return frame;
 }
+	// struct frame *frame = (struct frame *)malloc(sizeof(struct frame));
+	// frame->kva = palloc_get_page(PAL_USER);
+
+	// if (frame->kva == NULL)
+	// {
+	// 	frame = vm_evict_frame();
+	// 	if (!frame)
+	// 	{
+	// 		return NULL;
+	// 	}
+	// }
+	// else
+	// {
+	// 	list_push_back(&frame_table, &frame->f_elem);
+	// 	frame->page = NULL;
+		
+	// 	ASSERT(frame != NULL);
+	// 	ASSERT(frame->page == NULL);
+	// 	return frame;
+	// }
+
 
 /* Claim the page that allocate on VA. */
 /* va를 할당하도록 페이지를 클레임합니다.
@@ -352,7 +386,15 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 		struct page *new_p;
 		// 이렇게 해도 되나 ? -> ok: current thread == dst (child)
 		if (p->operations->type == VM_UNINIT)
-		{ // 초기 페이지
+		{
+			if (p->uninit.type & VM_MARKER_0) //스택일 경우
+			{ // 스택
+				if (!setup_stack(&thread_current()->tf))
+				{
+					return false;
+				}
+			}
+			//초기페이지
 			struct segment *aux = malloc(sizeof(struct segment));
 			memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
 			if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, p->uninit.init, aux))
@@ -361,37 +403,27 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 				return false;
 			}
 		}
-		else if (p->operations->type == VM_FILE) //이미 file-backed로 초기화된 페이지들
-		{
-			//printf("copying spt!!\n");
-			struct segment *aux = (struct segment *)malloc(sizeof(struct segment));
-			memcpy(aux, p->file.file_aux, sizeof(struct segment));
-			//memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
-			if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, lazy_load_file, aux))
-			{
-				free(aux);
-				return false;
-			}
-		}
+		// else if (p->operations->type == VM_FILE) //이미 file-backed로 초기화된 페이지들
+		// {
+		// 	//printf("copying spt!!\n");
+		// 	struct segment *aux = (struct segment *)malloc(sizeof(struct segment));
+		// 	memcpy(aux, p->file.file_aux, sizeof(struct segment));
+		// 	//memcpy(aux, p->uninit.aux, sizeof(struct segment)); // copy aux
+		// 	if (!vm_alloc_page_with_initializer(page_get_type(p), p->va, p->writable, lazy_load_file, aux))
+		// 	{
+		// 		free(aux);
+		// 		return false;
+		// 	}
+		// }
 		else
 		{
-			if (p->uninit.type & VM_MARKER_0)
-			{ // 스택
-				if (!setup_stack(&thread_current()->tf))
-				{
-					return false;
-				}
+			if (!vm_alloc_page(page_get_type(p), p->va, p->writable))
+			{ // page 할당
+				return false;
 			}
-			else
-			{ // 스택 이외
-				if (!vm_alloc_page(page_get_type(p), p->va, p->writable))
-				{ // page 할당
-					return false;
-				}
-				if (!vm_claim_page(p->va))
-				{ // mapping
-					return false;
-				}
+			if (!vm_claim_page(p->va))
+			{ // mapping
+				return false;
 			}
 			new_p = spt_find_page(dst, p->va);
 			memcpy(new_p->frame->kva, p->frame->kva, PGSIZE); // 메모리 복사
