@@ -80,7 +80,7 @@ struct segment
 	uint32_t zero_bytes;
 	struct file *file;
 	int page_count;
-	size_t written_bytes; //struct file_page를 spt_copy해올때 필요
+	size_t written_bytes; // struct file_page를 spt_copy해올때 필요
 };
 
 /* The function table for page operations.
@@ -115,17 +115,14 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst,
 								  struct supplemental_page_table *src);
 void supplemental_page_table_kill(struct supplemental_page_table *spt);
 
-struct page *spt_find_page(struct supplemental_page_table *spt,
-						   void *va);
+struct page *spt_find_page(struct supplemental_page_table *spt, void *va);
 bool spt_insert_page(struct supplemental_page_table *spt, struct page *page);
-void spt_remove_page(struct supplemental_page_table *spt, struct page *page);
 
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user,
 						 bool write, bool not_present);
 
 #define vm_alloc_page(type, upage, writable) vm_alloc_page_with_initializer((type), (upage), (writable), NULL, NULL)
-bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
-									bool writable, vm_initializer *init, void *aux);
+bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux);
 void vm_dealloc_page(struct page *page);
 bool vm_claim_page(void *va);
 enum vm_type page_get_type(struct page *page);
@@ -137,5 +134,6 @@ page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
 static void vm_stack_growth(void *rsp, void *addr UNUSED);
 void page_destructor(struct hash_elem *h, void *aux UNUSED);
+bool spt_delete_page(struct supplemental_page_table *spt UNUSED, struct page *page UNUSED);
 
 #endif /* VM_VM_H */

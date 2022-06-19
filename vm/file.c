@@ -36,10 +36,6 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 	memset(uninit, 0, sizeof(struct uninit_page));
 	/* -------------------------------------- */
 	struct file_page *file_page = &page->file;
-	// file_page->file_addr = page->file.file_addr;
-	// file_page->page_count = page->file.page_count;
-	// file_page->page_ofs = page->file.page_ofs;
-	// file_page->written_bytes = page->file.written_bytes;
 
 	return true;
 }
@@ -49,6 +45,23 @@ static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
 	struct file_page *file_page UNUSED = &page->file;
+	// struct segment *aux = (struct segment *)page->uninit.aux;
+
+	struct segment *aux = (struct segment *)file_page->file_aux;
+
+	struct file *file = aux->file;
+	off_t offset = aux->ofs;
+	size_t page_read_bytes = aux->written_bytes;
+	size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	if (file_read_at(file, kva, page_read_bytes, offset) != (int)page_read_bytes)
+	{
+		return false;
+	}
+
+	memset(kva + page_read_bytes, 0, page_zero_bytes);
+
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
@@ -56,6 +69,20 @@ static bool
 file_backed_swap_out(struct page *page)
 {
 	struct file_page *file_page UNUSED = &page->file;
+	struct thread *t = thread_current();
+	struct segment *aux = (struct segment *)file_page->file_aux;
+
+	if (pml4_is_dirty(t->pml4, page->va))
+	{
+		file_write_at(aux->file, page->va, aux->written_bytes, aux->ofs);
+		pml4_set_dirty(t->pml4, page->va, 0);
+	}
+
+	list_remove(&page->frame->f_elem);
+	pml4_clear_page(thread_current()->pml4, page->va);
+	palloc_free_page(page->frame->kva);
+
+	return true;
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -63,12 +90,16 @@ static void
 file_backed_destroy(struct page *page)
 {
 	struct segment *aux UNUSED = page->file.file_aux;
+	struct frame *frame = page->frame;
 	struct thread *t = thread_current();
-	if(pml4_is_dirty(t->pml4, page->va)) {
+
+	if (pml4_is_dirty(t->pml4, page->va))
+	{
 		file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
-			free(aux);
 		pml4_set_dirty(t->pml4, page->va, 0);
 	}
+	// list_remove(&frame->f_elem);
+	// free(frame);
 }
 
 /* Do the mmap */
@@ -76,18 +107,18 @@ void *
 do_mmap(void *addr, size_t length, int writable,
 		struct file *file, off_t offset)
 {
-	if((long)length < offset) {
+	if ((long)length < offset)
+	{
 		return NULL;
 	}
 	struct file *ofile = file_reopen(file);
-	void* origin_addr = addr;
-	//printf("	do_mmap 들어왔슴둥\n");
+	void *origin_addr = addr;
 	if (spt_find_page(&thread_current()->spt, addr) != NULL)
-	{	
+	{
 		return NULL;
 	} //사실 이건 vm_alloc 들어가면 페이지마다 확인해주긴 함
 
-	int page_count = (length % PGSIZE ? (int)(length/PGSIZE) + 1 : (int)(length/PGSIZE));
+	int page_count = (length % PGSIZE ? (int)(length / PGSIZE) + 1 : (int)(length / PGSIZE));
 
 	//조건 통과
 	long zero_bytes = 0;
@@ -102,9 +133,7 @@ do_mmap(void *addr, size_t length, int writable,
 		segment->read_bytes = page_read_bytes;
 		segment->zero_bytes = page_zero_bytes;
 		segment->file = ofile;
-		//segment->read_length = length - page_read_bytes;
 		segment->page_count = page_count;
-		//segment->written_bytes = 0; //아직 해당사항 없음
 		void *aux = segment;
 
 		if (!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_file, aux))
@@ -115,36 +144,27 @@ do_mmap(void *addr, size_t length, int writable,
 		zero_bytes -= page_zero_bytes;
 		addr += PGSIZE;
 		offset += page_read_bytes;
-		//printf("	do_mmap 한번 완료\n");
+		// printf("	do_mmap 한번 완료\n");
 	}
 
 	return origin_addr;
-	//vm_alloc_page_with_initializer(VM_FILE, addr, 1, lazy_load_segment, aux);
-
+	// vm_alloc_page_with_initializer(VM_FILE, addr, 1, lazy_load_segment, aux);
 }
 
-bool
-lazy_load_file(struct page *page, void *aux)
+bool lazy_load_file(struct page *page, void *aux)
 {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	//printf("	lazy_load_file 들어옴\n");
+	// printf("	lazy_load_file 들어옴\n");
 	struct segment *aux_data = aux;
 	struct file *f = aux_data->file;
 	off_t ofs = aux_data->ofs;
 	uint32_t page_read_bytes = aux_data->read_bytes;
 	uint32_t page_zero_bytes = aux_data->zero_bytes;
-	//struct file_page에 넣어두기
-	page->file.file_aux = (struct segment*)malloc(sizeof(struct segment));
+
+	page->file.file_aux = (struct segment *)malloc(sizeof(struct segment));
 	memcpy(page->file.file_aux, aux_data, sizeof(struct segment));
-	// &page->file.target_file = f;
-	// page->file.page_ofs = ofs;
-	// page->file.
-	// page->
-	// page->file.page_count = aux_data->page_count;
-	//page->file.page_ofs = ofs;
-	
 
 	file_seek(f, ofs);
 	size_t written_bytes = file_read(f, page->frame->kva, page_read_bytes);
@@ -152,53 +172,42 @@ lazy_load_file(struct page *page, void *aux)
 	{
 		return false;
 	}
-	//uninit일 때와 달라지는 점은 이거 하나
-	page->file.file_aux->written_bytes = written_bytes; 
-	//printf("written_bytes = %d\n", written_bytes);
-	
+	// uninit일 때와 달라지는 점은 이거 하나
+	page->file.file_aux->written_bytes = written_bytes;
+	// printf("written_bytes = %d\n", written_bytes);
+
 	memset(page->frame->kva + page_read_bytes, 0, page_zero_bytes);
 
-	free(aux_data); 
-	//printf("	lazy_load_file 완료\n");
+	free(aux_data);
+	// printf("	lazy_load_file 완료\n");
 	return true;
 }
 
 /* Do the munmap */
 void do_munmap(void *addr)
 {
-	//printf("	do_munmap 들어옴\n");
 	struct thread *t = thread_current();
 	struct page *page = spt_find_page(&t->spt, addr);
-	if(!page) {
+	if (!page)
+	{
 		return;
 	}
-	int unmap_count = 0;
-	//struct file_page *file_page = &page->file;
 	struct segment *aux = page->file.file_aux;
 
-	while (unmap_count < aux->page_count)
+	while (aux->page_count--)
 	{
-		// printf("	page_count = %d\n", aux->page_count);
 		if (pml4_is_dirty(t->pml4, page->va))
 		{
-			//printf("	pml4_was_dirty\n");
 			file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
-			pml4_set_dirty(t->pml4,page->va, 0);
-			//printf("	wrote into file\n");
+			pml4_set_dirty(t->pml4, page->va, 0);
 		}
 
 		spt_delete_page(&t->spt, page);
+		if (!(page = spt_find_page(&t->spt, addr + PGSIZE)))
+			return;
 
-		unmap_count += 1;
-		//addr += PGSIZE;
-		page = spt_find_page(&t->spt, addr + PGSIZE);
-			if(!page) return;
-
-		//free(aux); //file_backed_destroy에서 해줌
 		aux = page->file.file_aux;
-		// printf("	do_munmap하고 unmap_count = %d\n", unmap_count);
- 
 	}
-	// file_close(fp->file_addr);
 
+	// file_close(aux->file);
 }

@@ -1,13 +1,22 @@
 #ifndef VM_ANON_H
 #define VM_ANON_H
 #include "vm/vm.h"
+#include "include/threads/synch.h"
+#include "include/lib/kernel/bitmap.h"
+
 struct page;
 enum vm_type;
 
 struct anon_page
 {
-    int swap_slot;
-    bool is_stack;
+    uint64_t swap_slot_index;
+    // bool is_stack;
+};
+
+struct swap_table
+{
+    struct lock swap_lock;
+    struct bitmap bitmap;
 };
 
 void vm_anon_init(void);
