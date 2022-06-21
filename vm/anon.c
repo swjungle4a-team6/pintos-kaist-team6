@@ -80,23 +80,18 @@ anon_swap_out(struct page *page)
 	
 	int swap_idx = (int)bitmap_scan_and_flip(swap_table, 0, 1, false); //start 0, count 1, find 0->change to 1
 	anon_page->swap_slot = (int)swap_idx;
-	//void *kva = &page->frame->kva;
 
-	// if (pml4_is_dirty(t->pml4, page->va))
-	// {
-	//printf("여기까지 통과\n");
 	for (int i =0; i < SECTORS_PER_PAGE; i++)
 	{
 		//printf("	swap_idx: %d\n", swap_idx);
 		disk_write(swap_disk, swap_idx*SECTORS_PER_PAGE + i, page->va + i*DISK_SECTOR_SIZE);//왜 page->frame->kva아님?
 	}
-	pml4_set_dirty(t->pml4, page->va, 0);
-	//}
-	/*frame이 갖고있던 모든 것을 해제*/
+	//pml4_set_dirty(t->pml4, page->va, 0);
 	pml4_clear_page(t->pml4, page->va); //그냥 present bit을 0으로 해놔야
 	palloc_free_page(page->frame->kva); //process_cleanup()에서 palloc_free_page안하고 살려둠
-	// list_remove(&page->frame->f_elem); //이건 이미 get_victim할 때 list_pop으로 함
-	
+	//list_remove(&page->frame->f_elem); //get_victim에서 해줌
+	//page->frame->page = NULL;
+
 	/*ㅇㅁㅇ spt에서 지우면 이건 영원히 추방...*/
 	//spt_delete_page(&t->spt, page); //struct page에 대해서만 지워줌.(이 struct가 담고 있는 정보에 해당하는 애도 지워줘야함)
 	return true;

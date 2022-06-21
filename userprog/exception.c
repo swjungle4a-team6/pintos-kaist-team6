@@ -154,7 +154,7 @@ page_fault(struct intr_frame *f)
 	// 	printf("	vm_try_handle_fault(%p\n)", fault_addr);
 	// }
 #endif
-	// printf("fault: %p\n", fault_addr);
+	//printf("fault: %p\n", fault_addr);
 	exit(-1);
 	/* Count page faults. */
 	page_fault_cnt++;

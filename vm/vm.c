@@ -70,7 +70,10 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		 * TODO: should modify the field after calling the uninit_new. */
 
 		page = (struct page *)malloc(sizeof(struct page));
-		if (!page) return false;
+		if (page == NULL)
+		{
+			return false;
+		}
 		bool (*initializer)(struct page *, enum vm_type, void *);
 
 		switch (VM_TYPE(type))
@@ -149,7 +152,7 @@ bool spt_delete_page(struct supplemental_page_table *spt UNUSED,
 // 	return true;
 // }
 
-/* Get the struct frame, that will be evicted. */
+/* 1번 후보 swap-file, swap-anon 통과 알고리즘 */
 static struct frame *vm_get_victim(void)
 {
 	struct frame *victim = NULL;
@@ -158,8 +161,51 @@ static struct frame *vm_get_victim(void)
 	{
 		victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
 	}
+	//printf("	victim = %p\n", victim);
 	return victim;
 }
+
+/* 민우오빠거에 list_remove만 추가한거 (위에 후보1이랑 통일하느라...) 
+// static struct frame *
+// vm_get_victim(void)
+// {
+// 	struct frame *victim = NULL;
+
+// 	/* TODO: The policy for eviction is up to you. */
+// 	struct list_elem *tmp_elem = list_begin(&frame_table);
+// 	uint64_t *pml4 = &thread_current()->pml4;
+// 	for (tmp_elem; tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
+// 	{
+// 		victim = list_entry(tmp_elem, struct frame, f_elem);
+// 		if (pml4_is_accessed(pml4, victim->page->va))
+// 		{
+// 			pml4_set_accessed(pml4, victim->page->va, 0);
+// 		}
+// 		else
+// 		{
+// 			// clock_pointer = tmp_elem;
+// 			list_remove(&victim->f_elem);
+// 			printf("	victim = %p\n", victim);
+// 			return victim;
+// 		}
+// 	}
+
+// 	for (tmp_elem = list_begin(&frame_table); tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
+// 	{
+// 		victim = list_entry(tmp_elem, struct frame, f_elem);
+// 		if (pml4_is_accessed(pml4, victim->page->va))
+// 		{
+// 			pml4_set_accessed(pml4, victim->page->va, 0);
+// 		}
+// 		else
+// 		{
+// 			list_remove(&victim->f_elem);
+// 			printf("	victim = %p\n", victim);
+// 			return victim;
+// 		}
+// 	}
+// 	return NULL;
+// }
 
 /* 3차 윤찬이네 알고리즘 */
 // static struct frame *
@@ -200,67 +246,6 @@ static struct frame *vm_get_victim(void)
 // 	return victim;
 // }
 
-/* 2차? 내가 짠 알고리즘 */
-// static struct frame *vm_get_victim(void)
-// {
-// 	struct frame *victim = NULL;
-// 	/* TODO: The policy for eviction is up to you. */
-// 	//struct list_elem *clock_pointer = list_head(&frame_table);
-// 	uint64_t *pml4 = &thread_current()->pml4;
-// 	struct list_elem *tmp_elem;
-
-// 	for (int i = 0; i<2; i++)
-// 	{
-// 		// printf("frame: %p\n", list_front(&frame_table));
-// 		for (tmp_elem = list_front(&frame_table); tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
-// 		{
-// 			victim = list_entry(tmp_elem, struct frame, f_elem);
-// 			if (pml4_is_accessed(pml4, victim->page->va))
-// 			{
-// 				pml4_set_accessed(pml4, victim->page->va, 0);
-// 			}
-// 			else
-// 			{
-// 				if (victim != NULL) {
-// 					list_remove(&victim->f_elem);
-// 					return victim;
-// 				}
-// 			}
-// 		}
-// 	}
-// 	return NULL;
-// }
-/* 1차 민우 clock 알고리즘 */
-// 	struct list_elem *tmp_elem = clock_pointer;
-// 	uint64_t *pml4 = &thread_current()->pml4;
-// 	for (tmp_elem; tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
-// 	{
-// 		victim = list_entry(tmp_elem, struct frame, f_elem);
-// 		if (pml4_is_accessed(pml4, victim->page->va))
-// 		{
-// 			pml4_set_accessed(pml4, victim->page->va, 0);
-// 		}
-// 		else
-// 		{
-// 			clock_pointer = list_next(tmp_elem);
-// 			return victim;
-// 		}
-// 	}
-
-// 	for (tmp_elem = list_begin(&frame_table); tmp_elem != clock_pointer; tmp_elem = list_next(tmp_elem))
-// 	{
-// 		victim = list_entry(tmp_elem, struct frame, f_elem);
-// 		if (pml4_is_accessed(pml4, victim->page->va))
-// 		{
-// 			pml4_set_accessed(pml4, victim->page->va, 0);
-// 		}
-// 		else
-// 		{
-// 			clock_pointer = list_next(tmp_elem);
-// 			return victim;
-// 		}
-// 	}
-// }
 
 /* Evict one page and return the corresponding frame.
  * Return NULL on error.*/
@@ -296,13 +281,14 @@ vm_get_frame(void)
 	if (temp == NULL)
 	{
 		frame = vm_evict_frame();
-		if (!frame) return NULL;
+		if (frame == NULL)
+		{
+			return NULL;
+		} 
 		frame->page->frame = NULL;
-		temp = palloc_get_page(PAL_USER); //temp = frame->page->kva;
 		free(frame); //NULL값으로 돌아오는지 비워진 프레임이 있는지 확인하는 용도였어서
-	}
-	else
-	{
+		temp = palloc_get_page(PAL_USER); //temp = frame->page->kva;
+		
 	}
 	frame = (struct frame *)malloc(sizeof(struct frame));
 	frame->kva = temp;
