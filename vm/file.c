@@ -50,13 +50,21 @@ file_backed_swap_in(struct page *page, void *kva)
 {
 	// printf("page: %p\n", page);
 	struct file_page *file_page UNUSED = &page->file;
-	struct segment *file_aux = file_page->file_aux;
+	struct segment *aux = file_page->file_aux;
 	// printf("aux: %p\n", file_page);
-	file_seek(file_aux->file, file_aux->ofs);
-	file_read(file_aux->file, kva, file_aux->written_bytes);
-	//pml4_clear_page(t->pml4, page->va); present bit 세팅은 알아서 lazy loading때 해줄것
-	//palloc_get_page(PAL_USER); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
-	//list_push_back(&page->frame->f_elem);
+	struct file *file = aux->file;
+	off_t offset = aux->ofs;
+	size_t page_read_bytes = aux->written_bytes;
+	size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+	if (file_read_at(file, kva, page_read_bytes, offset) != (int)page_read_bytes)
+	{
+		return false;
+	}
+	memset(kva+page_read_bytes, 0, page_zero_bytes);
+	
+	//file_seek(file_aux->file, file_aux->ofs);
+	//file_read(file_aux->file, kva, file_aux->written_bytes);
 	
 	return true;
 
