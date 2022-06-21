@@ -20,4 +20,5 @@ void *do_mmap(void *addr, size_t length, int writable,
 		struct file *file, off_t offset);
 void do_munmap (void *va);
 bool lazy_load_file(struct page *page, void *aux);
+// bool file_backed_swap_in(struct page *page, void *kva);
 #endif

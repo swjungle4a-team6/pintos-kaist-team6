@@ -7,6 +7,7 @@
 #include "include/threads/mmu.h"
 #include "include/threads/vaddr.h"
 #include "include/userprog/process.h"
+#include "vm/file.h"
 
 struct list frame_table;
 struct list_elem *clock_pointer;
@@ -24,7 +25,7 @@ void vm_init(void)
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
 	list_init(&frame_table);
-	clock_pointer = list_head(&frame_table);
+	//clock_pointer = list_head(&frame_table);
 	/* -------------------------- */
 }
 
@@ -142,11 +143,11 @@ bool spt_delete_page(struct supplemental_page_table *spt UNUSED,
 	return true;
 }
 
-void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
-{
-	vm_dealloc_page(page);
-	return true;
-}
+// void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
+// {
+// 	vm_dealloc_page(page);
+// 	return true;
+// }
 
 /* Get the struct frame, that will be evicted. */
 static struct frame *vm_get_victim(void)
@@ -155,20 +156,81 @@ static struct frame *vm_get_victim(void)
 	
 	if (!list_empty(&frame_table))
 	{
-		
-		victim = list_entry(list_pop_front(&frame_table), struct frame, f_elem);
-
+		victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
 	}
 	return victim;
 }
 
-
-
+/* 3차 윤찬이네 알고리즘 */
 // static struct frame *
 // vm_get_victim(void)
 // {
+// 	// printf("\nvm_get_victim() entry\n");
+
+// 	// lock_acquire(&frame_lock);
 // 	struct frame *victim = NULL;
 // 	/* TODO: The policy for eviction is up to you. */
+// 	// clock 알고리즘. 
+	
+// 	struct list_elem *elem;
+// 	struct frame *frame;
+
+// 	for (elem = list_begin(&frame_table); elem != list_end(&frame_table);
+// 		 elem = list_next(elem)){
+		
+// 		frame = list_entry(elem, struct frame, f_elem);
+		
+// 		bool access = pml4_is_accessed(thread_current()->pml4, frame->page->va);
+
+// 		if (!access){
+// 			victim = frame;
+// 			list_remove(&frame->f_elem);
+// 			break;
+// 		}else{
+// 			pml4_set_accessed(thread_current()->pml4, frame->page->va, false);
+// 		}
+		
+// 	}
+// 	if (victim == NULL){
+// 		victim = list_entry(list_pop_front(&frame_table), struct frame, f_elem);
+		
+// 	}
+// 	// lock_release(&frame_lock);
+// 	// printf("\nvm_get_victim() end %p\n", victim);
+// 	return victim;
+// }
+
+/* 2차? 내가 짠 알고리즘 */
+// static struct frame *vm_get_victim(void)
+// {
+// 	struct frame *victim = NULL;
+// 	/* TODO: The policy for eviction is up to you. */
+// 	//struct list_elem *clock_pointer = list_head(&frame_table);
+// 	uint64_t *pml4 = &thread_current()->pml4;
+// 	struct list_elem *tmp_elem;
+
+// 	for (int i = 0; i<2; i++)
+// 	{
+// 		// printf("frame: %p\n", list_front(&frame_table));
+// 		for (tmp_elem = list_front(&frame_table); tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
+// 		{
+// 			victim = list_entry(tmp_elem, struct frame, f_elem);
+// 			if (pml4_is_accessed(pml4, victim->page->va))
+// 			{
+// 				pml4_set_accessed(pml4, victim->page->va, 0);
+// 			}
+// 			else
+// 			{
+// 				if (victim != NULL) {
+// 					list_remove(&victim->f_elem);
+// 					return victim;
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return NULL;
+// }
+/* 1차 민우 clock 알고리즘 */
 // 	struct list_elem *tmp_elem = clock_pointer;
 // 	uint64_t *pml4 = &thread_current()->pml4;
 // 	for (tmp_elem; tmp_elem != list_end(&frame_table); tmp_elem = list_next(tmp_elem))
@@ -207,9 +269,9 @@ vm_evict_frame(void)
 {
 	struct frame *victim = vm_get_victim();
 	/* TODO: swap out the victim and return the evicted frame. */
-	if (!victim) return NULL;
-	swap_out(victim->page);
-	return victim;
+	// if (!victim) return NULL;
+	
+	return swap_out(victim->page) ? victim : NULL;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -227,6 +289,7 @@ static struct frame * // 여기서 얻은 frame을 담을 frame page table을 �
 vm_get_frame(void)
 {
 	/* TODO: Fill this function. */
+	// printf("============start==========\n");
 	struct frame *frame = NULL;
 	void *temp = palloc_get_page(PAL_USER);
 
@@ -234,12 +297,14 @@ vm_get_frame(void)
 	{
 		frame = vm_evict_frame();
 		if (!frame) return NULL;
-		temp = palloc_get_page(PAL_USER);
+		frame->page->frame = NULL;
+		temp = palloc_get_page(PAL_USER); //temp = frame->page->kva;
+		free(frame); //NULL값으로 돌아오는지 비워진 프레임이 있는지 확인하는 용도였어서
 	}
 	else
 	{
-		frame = (struct frame *)malloc(sizeof(struct frame));
 	}
+	frame = (struct frame *)malloc(sizeof(struct frame));
 	frame->kva = temp;
 	frame->page = NULL;
 	list_push_back(&frame_table, &frame->f_elem);
@@ -297,8 +362,17 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
-	if (pml4_get_page(curr->pml4, page->va) == NULL && pml4_set_page(curr->pml4, page->va, frame->kva, page->writable))
-		return swap_in(page, frame->kva);
+	// printf("=============end========\n");
+	// printf("va: %p\n", page->va);
+	// printf("kva: %p\n", frame->kva);
+	// printf("page: %p\n", page);
+	if (pml4_get_page(curr->pml4, page->va) == NULL && pml4_set_page(curr->pml4, page->va, frame->kva, page->writable)) {
+		// printf("file: %p", file_backed_swap_in);
+		// printf("init: %p\n", page->operations->swap_in);
+		bool check = swap_in(page, frame->kva);
+		// printf("bool: %d\n", check);
+		return check;
+	}
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	return false;
@@ -350,7 +424,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 		vm_stack_growth(rsp, addr);
 	}
 	// else{
-	// 	printf("	failed to grow stack, rsp = %p, addr = %p\n", rsp, addr);
+		// printf("	failed to grow stack, rsp = %p, addr = %p\n", rsp, addr);
 	// }
 	
 	page = spt_find_page(spt, addr);
@@ -378,6 +452,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 	// todo 2: This is used when a child needs to inherit the execution context of its parent (i.e. fork()).
 	// todo 2: Iterate through each page in the src's supplemental page table and make a exact copy of the entry in the dst's supplemental page table.
 	// todo 2: You will need to allocate uninit page and claim them immediately.
+	// printf("~~~~~~hihi~~~~~~~~");
 	struct hash_iterator i;
 	hash_first(&i, &src->hash);
 	while (hash_next(&i))
@@ -425,8 +500,11 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 			{ // mapping
 				return false;
 			}
+			// printf("~~~~");
 			new_p = spt_find_page(dst, p->va);
+			// printf("~~~~");
 			memcpy(new_p->frame->kva, p->frame->kva, PGSIZE); // 메모리 복사
+			// printf("~~~~");
 		}
 	}
 	return true;

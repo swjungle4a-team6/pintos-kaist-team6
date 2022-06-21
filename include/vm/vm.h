@@ -80,7 +80,7 @@ struct segment
 	uint32_t zero_bytes;
 	struct file *file;
 	int page_count;
-	size_t written_bytes; //struct file_page를 spt_copy해올때 필요
+	size_t written_bytes; //lazy_load_file에서 읽은 길이를 기록하기 위해 필요
 };
 
 /* The function table for page operations.
@@ -118,7 +118,8 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt);
 struct page *spt_find_page(struct supplemental_page_table *spt,
 						   void *va);
 bool spt_insert_page(struct supplemental_page_table *spt, struct page *page);
-void spt_remove_page(struct supplemental_page_table *spt, struct page *page);
+//void spt_remove_page(struct supplemental_page_table *spt, struct page *page);
+bool spt_delete_page(struct supplemental_page_table *spt, struct page *page);
 
 bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user,
 						 bool write, bool not_present);

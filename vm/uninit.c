@@ -45,6 +45,7 @@ void uninit_new(struct page *page, void *va, vm_initializer *init,
 static bool
 uninit_initialize(struct page *page, void *kva)
 {
+	// printf("uninit_initialize: %p", uninit_initialize);
 	struct uninit_page *uninit = &page->uninit;
 
 	/* Fetch first, page_initializer may overwrite the values */

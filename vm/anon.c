@@ -49,18 +49,20 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 static bool
 anon_swap_in(struct page *page, void *kva)
 {
-	//printf("	anon_swap_in 들어왔다!!!\n");
+	// printf("	anon_swap_in 들어왔다!!!%p\n", anon_swap_in);
 	struct anon_page *anon_page = &page->anon;
 	int swap_idx = anon_page->swap_slot;
 	//void *kva = page->frame->kva;
-
+	// printf("hihihihi~~~~3\n");
 	for (int i = 0; i < 8; i++)
 	{
 		disk_read(swap_disk, swap_idx*SECTORS_PER_PAGE + i, kva + i*DISK_SECTOR_SIZE);
 
 	}
 	//disk_read(swap_disk, anon_page->swap_slot, page->frame->kva);
-	bitmap_set(swap_table, (anon_page->swap_slot)/8, false);
+	// printf("hihihihi~~~~2\n");
+	bitmap_set(swap_table, (anon_page->swap_slot)/8, 0);
+	// printf("hihihihi~~~~1\n");
 	return true;
 }
 
@@ -88,12 +90,12 @@ anon_swap_out(struct page *page)
 		//printf("	swap_idx: %d\n", swap_idx);
 		disk_write(swap_disk, swap_idx*SECTORS_PER_PAGE + i, page->va + i*DISK_SECTOR_SIZE);//왜 page->frame->kva아님?
 	}
-	//pml4_set_dirty(t->pml4, page->va, 0);
+	pml4_set_dirty(t->pml4, page->va, 0);
 	//}
 	/*frame이 갖고있던 모든 것을 해제*/
-	pml4_clear_page(t->pml4, page->va); //근데...어차피 페이지를 없애면... pml4에 present bit 바꿔줄 필요도 없는거 아닌가...?
-	palloc_free_page(page->frame->kva); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
-	//list_remove(&page->frame->f_elem);
+	pml4_clear_page(t->pml4, page->va); //그냥 present bit을 0으로 해놔야
+	palloc_free_page(page->frame->kva); //process_cleanup()에서 palloc_free_page안하고 살려둠
+	// list_remove(&page->frame->f_elem); //이건 이미 get_victim할 때 list_pop으로 함
 	
 	/*ㅇㅁㅇ spt에서 지우면 이건 영원히 추방...*/
 	//spt_delete_page(&t->spt, page); //struct page에 대해서만 지워줌.(이 struct가 담고 있는 정보에 해당하는 애도 지워줘야함)
@@ -108,7 +110,11 @@ anon_destroy(struct page *page)
 	struct anon_page *anon_page = &page->anon;
 	struct frame *frame = page->frame;
 
-	list_remove(&frame->f_elem);
-	free(frame);
-	//free(frame->kva);
+	// printf("	at anon_destroy(), will remove and free frame\n");
+	if (frame != NULL) {
+		// palloc_free_page(frame->kva);
+		list_remove(&frame->f_elem);
+		free(frame);
+	}
+	// printf("	at anon_destroy(), just removed frame from list\n");
 }
