@@ -90,7 +90,7 @@ file_backed_swap_out(struct page *page)
 	}
 	pml4_clear_page(t->pml4, page->va);
 	palloc_free_page(page->frame->kva); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
-	//list_remove(&page->frame->f_elem); //vm_get_victim에서 해줌
+	list_remove(&page->frame->f_elem); //vm_get_victim에서 해줌
 	//page->frame->page = NULL; //그냥 나가서 frame malloc하고 걔 세팅해줘도 됨
 	// printf("out\n");
 	return true;

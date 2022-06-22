@@ -157,12 +157,29 @@ static struct frame *vm_get_victim(void)
 {
 	struct frame *victim = NULL;
 	
-	if (!list_empty(&frame_table))
-	{
-		victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
+	// if (!list_empty(&frame_table))
+	// {
+	// 	victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
+	// }
+	// //printf("	victim = %p\n", victim);
+	// return victim;
+	struct list_elem *clock_pointer = list_begin(&frame_table);
+	uint64_t *pml4 = &thread_current()->pml4;
+
+	while (1){
+		victim = list_entry(clock_pointer, struct frame, f_elem);
+		if (pml4_is_accessed(pml4, victim->page->va)){
+			pml4_set_accessed(pml4, victim->page->va, 0);
+			clock_pointer = list_next(clock_pointer);
+			if (clock_pointer == NULL)
+				clock_pointer = list_begin(&frame_table);
+		}
+		else {
+			//list_remove(&victim->f_elem);
+			return victim;
+		}
 	}
-	//printf("	victim = %p\n", victim);
-	return victim;
+	return victim; //이건 의미없긴 함
 }
 
 /* 민우오빠거에 list_remove만 추가한거 (위에 후보1이랑 통일하느라...) 

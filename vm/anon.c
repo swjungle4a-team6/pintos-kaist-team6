@@ -41,7 +41,8 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 	memset(uninit, 0, sizeof(struct uninit_page));
 	struct anon_page *anon_page = &page->anon;
 	
-	// anon_page->swap_slot = -1;
+	anon_page->swap_slot = 0;
+	
 	return true;
 }
 
@@ -59,10 +60,10 @@ anon_swap_in(struct page *page, void *kva)
 		disk_read(swap_disk, swap_idx*SECTORS_PER_PAGE + i, kva + i*DISK_SECTOR_SIZE);
 
 	}
-	//disk_read(swap_disk, anon_page->swap_slot, page->frame->kva);
-	// printf("hihihihi~~~~2\n");
-	bitmap_set(swap_table, (anon_page->swap_slot)/8, 0);
-	// printf("hihihihi~~~~1\n");
+	
+	//bitmap_set(swap_table, (anon_page->swap_slot)/8, 0);
+	bitmap_set(swap_table, swap_idx, 0);
+	
 	return true;
 }
 
@@ -89,8 +90,8 @@ anon_swap_out(struct page *page)
 	//pml4_set_dirty(t->pml4, page->va, 0);
 	pml4_clear_page(t->pml4, page->va); //그냥 present bit을 0으로 해놔야
 	palloc_free_page(page->frame->kva); //process_cleanup()에서 palloc_free_page안하고 살려둠
-	//list_remove(&page->frame->f_elem); //get_victim에서 해줌
-	//page->frame->page = NULL;
+	list_remove(&page->frame->f_elem); //get_victim에서 해줌
+	//page->frame->page = NULL
 
 	/*ㅇㅁㅇ spt에서 지우면 이건 영원히 추방...*/
 	//spt_delete_page(&t->spt, page); //struct page에 대해서만 지워줌.(이 struct가 담고 있는 정보에 해당하는 애도 지워줘야함)
