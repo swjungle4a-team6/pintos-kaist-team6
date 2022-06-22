@@ -62,6 +62,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	struct page *page = NULL;
 	/* Check whether the upage is already occupied or not. */
+	// printf("	### vm_alloc_page_with_initializer - spt_find_page ###\n");
 	if (spt_find_page(spt, upage) == NULL)
 	{
 		/* TODO: Create the page, fetch the initialier according to the VM type,
@@ -112,11 +113,11 @@ spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
 	struct page tmp;
 	struct hash_elem *h = NULL;
 	tmp.va = pg_round_down(va);
-
+	// printf("	### spt_find_page - tmp.va: %p, &tmp.h_elem: %p###\n", tmp.va, &tmp.h_elem);
 	h = hash_find(&spt->hash, &tmp.h_elem);
-
 	if (h == NULL)
 	{
+		// printf("	### spt_find_page - hash_find fail\n");
 		return NULL;
 	}
 
@@ -128,7 +129,7 @@ bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
 					 struct page *page UNUSED)
 {
 	/* TODO: Fill this function. */
-	page->va = pg_round_down(page->va);
+	// page->va = pg_round_down(page->va);
 	if (!hash_insert(&spt->hash, &page->h_elem)) // hash_insert는 삽입 성공 시 0을 반환 (헷갈리면 안됨)
 		return true;
 
@@ -156,13 +157,35 @@ bool spt_delete_page(struct supplemental_page_table *spt UNUSED,
 static struct frame *vm_get_victim(void)
 {
 	struct frame *victim = NULL;
+	struct list_elem *clock_pointer = list_begin(&frame_table);
+	uint64_t *pml4 = &thread_current()->pml4;
 	
-	if (!list_empty(&frame_table))
-	{
-		victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
+	while (1) {
+		// printf("	### vm_get_victim ###\n");
+		victim = list_entry(clock_pointer, struct frame, f_elem);
+		// printf("	### victim: %p ###\n", victim);
+
+		if (pml4_is_accessed(pml4, victim->page->va)) {
+			// printf("	### vm_get_victim - if ###\n");
+			pml4_set_accessed(pml4, victim->page->va, 0);
+			clock_pointer = list_next(clock_pointer);
+			if (clock_pointer == NULL)
+				clock_pointer = list_begin(&frame_table);
+		}
+		else {
+			// printf("	### vm_get_victim - else ###\n");
+			return victim;
+		}
 	}
-	//printf("	victim = %p\n", victim);
-	return victim;
+
+	// struct frame *victim = NULL;
+	
+	// if (!list_empty(&frame_table))
+	// {
+	// 	victim = list_entry(list_pop_back(&frame_table), struct frame, f_elem);
+	// }
+	// //printf("	victim = %p\n", victim);
+	// return victim;
 }
 
 /* 민우오빠거에 list_remove만 추가한거 (위에 후보1이랑 통일하느라...) 
@@ -256,7 +279,8 @@ vm_evict_frame(void)
 	/* TODO: swap out the victim and return the evicted frame. */
 	// if (!victim) return NULL;
 	
-	return swap_out(victim->page) ? victim : NULL;
+	return victim;
+	// return swap_out(victim->page) ? victim : NULL;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -281,11 +305,13 @@ vm_get_frame(void)
 	if (temp == NULL)
 	{
 		frame = vm_evict_frame();
-		if (frame == NULL)
-		{
+		if (!swap_out(frame->page))
 			return NULL;
-		} 
-		frame->page->frame = NULL;
+		// if (frame == NULL)
+		// {
+		// 	return NULL;
+		// } 
+		// frame->page->frame = NULL;
 		free(frame); //NULL값으로 돌아오는지 비워진 프레임이 있는지 확인하는 용도였어서
 		temp = palloc_get_page(PAL_USER); //temp = frame->page->kva;
 		
@@ -329,6 +355,7 @@ bool vm_claim_page(void *va UNUSED)
 	struct page *page = NULL;
 	struct supplemental_page_table *spt = &thread_current()->spt;
 	/* TODO: Fill this function */
+	// printf("	### vm_claim_page ###\n");
 	page = spt_find_page(spt, va);
 	/* ------------------------ */
 	return page != NULL ? vm_do_claim_page(page) : false;
@@ -357,9 +384,10 @@ vm_do_claim_page(struct page *page)
 		// printf("init: %p\n", page->operations->swap_in);
 		bool check = swap_in(page, frame->kva);
 		// printf("bool: %d\n", check);
+		// printf("	### vm_do_claim_page - after swap_in, check: %d\n", check);
 		return check;
 	}
-
+	// printf("	### vm_do_claim_page - false ###\n");
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	return false;
 }
@@ -413,9 +441,10 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 		// printf("	failed to grow stack, rsp = %p, addr = %p\n", rsp, addr);
 	// }
 	
+	// printf("	### vm_try_handle_fault - spt_find_page, addr: %p###\n", addr);
 	page = spt_find_page(spt, addr);
-	//printf("	page = %p\n", page);
-	return page ? vm_do_claim_page(page) : false;
+	// printf("	page = %p\n", page);
+	return page != NULL ? vm_do_claim_page(page) : false;
 }
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
@@ -487,6 +516,7 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 				return false;
 			}
 			// printf("~~~~");
+			// printf("	### supplemental_page_table_copy ###\n");
 			new_p = spt_find_page(dst, p->va);
 			// printf("~~~~");
 			memcpy(new_p->frame->kva, p->frame->kva, PGSIZE); // 메모리 복사

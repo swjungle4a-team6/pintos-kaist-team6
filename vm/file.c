@@ -48,6 +48,7 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 static bool
 file_backed_swap_in(struct page *page, void *kva)
 {
+	// printf("	### file_backed_swap_in ###\n");
 	// printf("page: %p\n", page);
 	struct file_page *file_page UNUSED = &page->file;
 	struct segment *aux = file_page->file_aux;
@@ -74,6 +75,7 @@ file_backed_swap_in(struct page *page, void *kva)
 static bool
 file_backed_swap_out(struct page *page)
 {
+	// printf("	### file_backed_swap_out - page: %p ###\n", page);
 	struct file_page *file_page UNUSED = &page->file;
 	// //printf("	do_munmap 들어옴\n");
 	struct thread *t = thread_current();
@@ -90,6 +92,7 @@ file_backed_swap_out(struct page *page)
 	}
 	pml4_clear_page(t->pml4, page->va);
 	palloc_free_page(page->frame->kva); //아 그치 우리가 frame에 대해서 하는 모든 오퍼레이션은 kva에 대해서...
+	list_remove(&page->frame->f_elem);
 	//list_remove(&page->frame->f_elem); //vm_get_victim에서 해줌
 	//page->frame->page = NULL; //그냥 나가서 frame malloc하고 걔 세팅해줘도 됨
 	// printf("out\n");
@@ -112,14 +115,14 @@ file_backed_destroy(struct page *page)
 		file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
 		pml4_set_dirty(t->pml4, page->va, 0);
 	}
-	free(aux);
+	// free(aux);
 	
-	struct frame *frame = page->frame;
-	if (frame != NULL) {
-	// 	palloc_free_page(page->frame->kva);
-		list_remove(&page->frame->f_elem);
-		free(page->frame);
-	}
+	// struct frame *frame = page->frame;
+	// if (frame != NULL) {
+	// // 	palloc_free_page(page->frame->kva);
+	// 	list_remove(&page->frame->f_elem);
+	// 	free(page->frame);
+	// }
 	
 }
 
@@ -222,17 +225,17 @@ void do_munmap(void *addr)
 
 	while (unmap_count < aux->page_count)
 	{
-		if (pml4_is_dirty(t->pml4, page->va))
-		{	
-			file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
-			pml4_set_dirty(t->pml4,page->va, 0);
-		}
-		pml4_clear_page(t->pml4, page->va);
+		// if (pml4_is_dirty(t->pml4, page->va))
+		// {	
+		// 	file_write_at(aux->file, page->frame->kva, aux->written_bytes, aux->ofs);
+		// 	pml4_set_dirty(t->pml4,page->va, 0);
+		// }
+		// pml4_clear_page(t->pml4, page->va);
 		spt_delete_page(&t->spt, page);
 
 		unmap_count += 1;
 		page = spt_find_page(&t->spt, addr + PGSIZE);
-			if(!page) return;
+		if(!page) return;
 		//free(aux); //file_backed_destroy에서 해줌
 		aux = page->file.file_aux;
 		

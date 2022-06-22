@@ -40,6 +40,7 @@ bool anon_initializer(struct page *page, enum vm_type type, void *kva)
 	struct uninit_page *uninit = &page->uninit;
 	memset(uninit, 0, sizeof(struct uninit_page));
 	struct anon_page *anon_page = &page->anon;
+	anon_page->swap_slot = 0;
 	
 	// anon_page->swap_slot = -1;
 	return true;
@@ -61,7 +62,8 @@ anon_swap_in(struct page *page, void *kva)
 	}
 	//disk_read(swap_disk, anon_page->swap_slot, page->frame->kva);
 	// printf("hihihihi~~~~2\n");
-	bitmap_set(swap_table, (anon_page->swap_slot)/8, 0);
+	// bitmap_set(swap_table, (anon_page->swap_slot)/8, 0);
+	bitmap_set(swap_table, swap_idx, 0);
 	// printf("hihihihi~~~~1\n");
 	return true;
 }
@@ -70,25 +72,29 @@ anon_swap_in(struct page *page, void *kva)
 static bool
 anon_swap_out(struct page *page)
 {
+	// printf("	### anon_swap_out ###\n");
 	//printf("	anon_swap_out 들어왔달룽\n");
 	struct anon_page *anon_page = &page->anon;
 	struct thread *t = thread_current();
-	if (bitmap_all(swap_table, 0, disk_size(swap_disk) / 8))
-	{
-		PANIC("swap table is full.");
-	}
+	// if (bitmap_all(swap_table, 0, disk_size(swap_disk) / 8))
+	// {
+	// 	PANIC("swap table is full.");
+	// }
+	// printf("	### bitmap_all 통과 ###\n");
 	
 	int swap_idx = (int)bitmap_scan_and_flip(swap_table, 0, 1, false); //start 0, count 1, find 0->change to 1
 	anon_page->swap_slot = (int)swap_idx;
+	// printf("	### bitmap_scan_and_flip 통과 ###\n");
 
 	for (int i =0; i < SECTORS_PER_PAGE; i++)
 	{
-		//printf("	swap_idx: %d\n", swap_idx);
 		disk_write(swap_disk, swap_idx*SECTORS_PER_PAGE + i, page->va + i*DISK_SECTOR_SIZE);//왜 page->frame->kva아님?
 	}
+	// printf("	### for문 통과: idx: %d ###\n", swap_idx);
 	//pml4_set_dirty(t->pml4, page->va, 0);
 	pml4_clear_page(t->pml4, page->va); //그냥 present bit을 0으로 해놔야
 	palloc_free_page(page->frame->kva); //process_cleanup()에서 palloc_free_page안하고 살려둠
+	list_remove(&page->frame->f_elem);
 	//list_remove(&page->frame->f_elem); //get_victim에서 해줌
 	//page->frame->page = NULL;
 
@@ -102,14 +108,14 @@ anon_swap_out(struct page *page)
 static void
 anon_destroy(struct page *page)
 {
-	struct anon_page *anon_page = &page->anon;
-	struct frame *frame = page->frame;
+	// struct anon_page *anon_page = &page->anon;
+	// struct frame *frame = page->frame;
 
-	// printf("	at anon_destroy(), will remove and free frame\n");
-	if (frame != NULL) {
-		// palloc_free_page(frame->kva);
-		list_remove(&frame->f_elem);
-		free(frame);
-	}
+	// // printf("	at anon_destroy(), will remove and free frame\n");
+	// if (frame != NULL) {
+	// 	// palloc_free_page(frame->kva);
+	// 	list_remove(&frame->f_elem);
+	// 	free(frame);
+	// }
 	// printf("	at anon_destroy(), just removed frame from list\n");
 }
